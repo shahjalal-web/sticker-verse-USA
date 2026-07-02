@@ -1,105 +1,41 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const SUBCATEGORIES = [
   {
     title: "Vinyl Stickers",
     href: "/stickers/vinyl",
+    img: "/Vinyl Stickers.png",
     gradient: "linear-gradient(145deg, #0b1437 0%, #1a2f6e 60%, #0d1a3a 100%)",
-    shimmer: "#3b5bdb",
-    shape: (
-      <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-20 h-20">
-        <path d="M60 15 C25 15 10 35 10 60 C10 85 30 105 60 105 C90 105 110 85 110 60 C110 35 95 15 60 15Z"
-          fill="#3b5bdb" fillOpacity="0.25" stroke="#4c6ef5" strokeWidth="1.5" />
-        <path d="M60 28 C35 28 22 44 22 60 C22 76 36 94 60 94 C84 94 98 76 98 60 C98 44 85 28 60 28Z"
-          fill="#3b5bdb" fillOpacity="0.4" />
-        <circle cx="60" cy="60" r="18" fill="#4c6ef5" fillOpacity="0.6" />
-        <circle cx="60" cy="60" r="10" fill="#748ffc" />
-      </svg>
-    ),
+    glow: "rgba(75,105,230,0.35)",
   },
   {
     title: "Holographic Stickers",
     href: "/stickers/holographic",
+    img: "/Holographic Stickers.png",
     gradient: "linear-gradient(145deg, #1a0533 0%, #4a1272 40%, #2d0a5c 100%)",
-    shimmer: "#cc5de8",
-    shape: (
-      <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-20 h-20">
-        <path d="M60 10 L75 42 L110 42 L82 63 L93 95 L60 75 L27 95 L38 63 L10 42 L45 42Z"
-          fill="url(#holo)" fillOpacity="0.5" stroke="#da77f2" strokeWidth="1.2" />
-        <defs>
-          <linearGradient id="holo" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#cc5de8" />
-            <stop offset="33%" stopColor="#4dabf7" />
-            <stop offset="66%" stopColor="#69db7c" />
-            <stop offset="100%" stopColor="#ffd43b" />
-          </linearGradient>
-        </defs>
-        <path d="M60 10 L75 42 L110 42 L82 63 L93 95 L60 75 L27 95 L38 63 L10 42 L45 42Z"
-          fill="url(#holo)" fillOpacity="0.35" />
-      </svg>
-    ),
+    glow: "rgba(180,80,230,0.35)",
   },
   {
     title: "Glitter Stickers",
     href: "/stickers/glitter",
+    img: "/Glitter Stickers.png",
     gradient: "linear-gradient(145deg, #1c1000 0%, #5c3200 50%, #2a1800 100%)",
-    shimmer: "#ffd43b",
-    shape: (
-      <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-20 h-20">
-        <rect x="18" y="18" width="84" height="84" rx="14" fill="#f59f00" fillOpacity="0.2" stroke="#ffd43b" strokeWidth="1.2" />
-        <rect x="28" y="28" width="64" height="64" rx="10" fill="#f59f00" fillOpacity="0.3" />
-        <circle cx="45" cy="45" r="5" fill="#ffd43b" fillOpacity="0.9" />
-        <circle cx="75" cy="45" r="3" fill="#ffd43b" fillOpacity="0.6" />
-        <circle cx="60" cy="60" r="7" fill="#ffd43b" fillOpacity="0.8" />
-        <circle cx="45" cy="75" r="3" fill="#ffd43b" fillOpacity="0.6" />
-        <circle cx="75" cy="75" r="5" fill="#ffd43b" fillOpacity="0.9" />
-        <circle cx="60" cy="35" r="2.5" fill="#ffd43b" fillOpacity="0.7" />
-        <circle cx="60" cy="85" r="2.5" fill="#ffd43b" fillOpacity="0.7" />
-        <circle cx="35" cy="60" r="2.5" fill="#ffd43b" fillOpacity="0.7" />
-        <circle cx="85" cy="60" r="2.5" fill="#ffd43b" fillOpacity="0.7" />
-      </svg>
-    ),
+    glow: "rgba(230,170,0,0.35)",
   },
   {
     title: "Chrome Stickers",
     href: "/stickers/chrome",
+    img: "/Chrome Stickers.png",
     gradient: "linear-gradient(145deg, #111111 0%, #2c2c2c 50%, #111111 100%)",
-    shimmer: "#adb5bd",
-    shape: (
-      <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-20 h-20">
-        <path d="M60 12 L108 36 L108 84 L60 108 L12 84 L12 36Z"
-          fill="url(#chrome)" fillOpacity="0.35" stroke="#adb5bd" strokeWidth="1.2" />
-        <defs>
-          <linearGradient id="chrome" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#f8f9fa" />
-            <stop offset="40%" stopColor="#868e96" />
-            <stop offset="70%" stopColor="#f8f9fa" />
-            <stop offset="100%" stopColor="#495057" />
-          </linearGradient>
-        </defs>
-        <path d="M60 25 L96 44 L96 76 L60 95 L24 76 L24 44Z" fill="url(#chrome)" fillOpacity="0.6" />
-        <circle cx="60" cy="60" r="14" fill="url(#chrome)" fillOpacity="0.9" />
-      </svg>
-    ),
+    glow: "rgba(180,190,200,0.3)",
   },
   {
     title: "Sticker Sheets",
     href: "/stickers/sheets",
+    img: "/Sticker Sheets.png",
     gradient: "linear-gradient(145deg, #001a12 0%, #04421e 50%, #001a12 100%)",
-    shimmer: "#51cf66",
-    shape: (
-      <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-20 h-20">
-        <rect x="15" y="10" width="60" height="80" rx="5" fill="#2f9e44" fillOpacity="0.15" stroke="#51cf66" strokeWidth="1.2" />
-        <rect x="20" y="16" width="50" height="10" rx="2" fill="#51cf66" fillOpacity="0.35" />
-        <rect x="20" y="30" width="22" height="22" rx="3" fill="#51cf66" fillOpacity="0.4" />
-        <rect x="46" y="30" width="22" height="22" rx="3" fill="#51cf66" fillOpacity="0.3" />
-        <rect x="20" y="56" width="22" height="22" rx="3" fill="#51cf66" fillOpacity="0.3" />
-        <rect x="46" y="56" width="22" height="22" rx="3" fill="#51cf66" fillOpacity="0.4" />
-        <rect x="45" y="20" width="60" height="80" rx="5" fill="#2f9e44" fillOpacity="0.08" stroke="#40c057" strokeWidth="1" />
-        <rect x="55" y="55" width="22" height="22" rx="3" fill="#40c057" fillOpacity="0.25" />
-        <rect x="55" y="31" width="22" height="22" rx="3" fill="#40c057" fillOpacity="0.2" />
-      </svg>
-    ),
+    glow: "rgba(60,190,100,0.35)",
   },
 ];
 
@@ -148,23 +84,37 @@ export default function StickerSubcategoryView() {
             <Link
               key={item.href}
               href={item.href}
-              className="group flex flex-col rounded-xl overflow-hidden border border-white/[0.07] hover:border-white/[0.22] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_50px_rgba(0,0,0,0.6)]"
-              style={{ background: item.gradient }}
+              className="group flex flex-col rounded-xl overflow-hidden border border-white/7 hover:border-white/22 transition-all duration-400 hover:-translate-y-1.5"
+              style={{
+                background: item.gradient,
+                boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
+              }}
             >
-              {/* Art area */}
-              <div className="flex items-center justify-center pt-6 pb-4 px-4 flex-1 min-h-[120px]">
-                <div className="group-hover:scale-105 transition-transform duration-300">
-                  {item.shape}
+              {/* Art area — image */}
+              <div className="relative flex items-center justify-center flex-1 min-h-32.5 p-5 overflow-hidden">
+                {/* Ambient glow behind image */}
+                <div
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                  style={{ background: `radial-gradient(60% 60% at 50% 55%, ${item.glow}, transparent)` }}
+                />
+                <div className="relative w-full h-27.5 group-hover:scale-110 transition-transform duration-400">
+                  <Image
+                    src={item.img}
+                    alt={item.title}
+                    fill
+                    className="object-contain drop-shadow-[0_4px_16px_rgba(0,0,0,0.5)] group-hover:drop-shadow-[0_0_20px_rgba(255,255,255,0.12)]"
+                    unoptimized
+                  />
                 </div>
               </div>
 
               {/* Label */}
               <div
-                className="px-4 py-3 flex items-center justify-between border-t border-white/[0.06]"
-                style={{ background: "rgba(0,0,0,0.3)" }}
+                className="px-4 py-3 flex items-center justify-between border-t border-white/6"
+                style={{ background: "rgba(0,0,0,0.35)" }}
               >
                 <span
-                  className="text-[10px] sm:text-[11px] font-bold tracking-[0.08em] uppercase text-gray-300 group-hover:text-white transition-colors duration-200 leading-snug"
+                  className="text-[10px] sm:text-[11px] font-bold tracking-[0.08em] uppercase text-zinc-300 group-hover:text-white transition-colors duration-200 leading-snug"
                   style={{ fontFamily: "var(--font-orbitron)" }}
                 >
                   {item.title}
@@ -172,7 +122,7 @@ export default function StickerSubcategoryView() {
                 <svg
                   width="11" height="11" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" strokeWidth="2.5"
-                  className="text-gray-500 group-hover:text-white group-hover:translate-x-0.5 transition-all duration-200 flex-shrink-0 ml-2"
+                  className="text-zinc-500 group-hover:text-white group-hover:translate-x-0.5 transition-all duration-200 shrink-0 ml-2"
                 >
                   <path d="m5 12 14 0M13 6l6 6-6 6" />
                 </svg>

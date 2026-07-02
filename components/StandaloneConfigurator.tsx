@@ -32,21 +32,21 @@ const TYPE_CONFIG: Record<StickerType, {
   holographic: {
     title: "Holographic Stickers", subtitle: "Rainbow shimmer effect that turns heads.",
     description: "Holographic vinyl stickers with a stunning rainbow effect. Waterproof and UV-resistant.",
-    materials: ["holographic"], defaultMaterial: "holographic", basePrice: 2.50,
+    materials: ["matte", "gloss"], defaultMaterial: "matte", basePrice: 2.50,
     accent: "#a855f7", accentRgb: "168,85,247",
     features: ["Rainbow Shimmer", "Waterproof", "UV Resistant", "Eye-Catching"],
   },
   glitter: {
     title: "Glitter Stickers", subtitle: "Sparkle and shine on every surface.",
     description: "Eye-catching glitter vinyl stickers. Durable, waterproof, and packed with sparkle.",
-    materials: ["glitter"], defaultMaterial: "glitter", basePrice: 2.75,
+    materials: ["matte", "gloss"], defaultMaterial: "matte", basePrice: 2.75,
     accent: "#eab308", accentRgb: "234,179,8",
     features: ["Glitter Finish", "Waterproof", "Durable", "Sparkle Effect"],
   },
   chrome: {
     title: "Chrome Stickers", subtitle: "Mirror-like metallic finish. Bold and striking.",
     description: "Chrome mirror vinyl stickers with a sleek metallic look. Weather-resistant and long-lasting.",
-    materials: ["chrome"], defaultMaterial: "chrome", basePrice: 2.50,
+    materials: ["matte", "gloss"], defaultMaterial: "matte", basePrice: 2.50,
     accent: "#94a3b8", accentRgb: "148,163,184",
     features: ["Mirror Finish", "Weather-Resistant", "Long-Lasting", "Metallic"],
   },
@@ -466,9 +466,22 @@ export default function StandaloneConfigurator({ stickerType }: { stickerType: S
                 boxShadow: shape === "custom" ? `0 0 22px rgba(${accentRgb},0.22),inset 0 0 20px rgba(${accentRgb},0.05)` : "none",
                 display: "flex", alignItems: "center", gap: "12px", width: "100%", textAlign: "left",
               }}>
-                <svg viewBox="0 0 40 40" style={{ width: "34px", height: "34px", flexShrink: 0 }} fill="none"
-                  stroke={shape === "custom" ? accent : "#4b5563"} strokeWidth="2">
-                  <path d="M20 4 C27 3 36 9 37 18 C38 27 31 36 22 38 C13 40 4 34 3 25 C2 16 10 6 20 4Z" strokeLinejoin="round"/>
+                <svg viewBox="0 0 40 40" style={{ width: "34px", height: "34px", flexShrink: 0 }} fill="none">
+                  <path
+                    d="M20,4 L24.1,14.3 L35.2,15.1 L26.7,22.2 L29.4,32.9 L20,27 L10.6,32.9 L13.3,22.2 L4.8,15.1 L15.9,14.3 Z"
+                    fill={shape === "custom" ? `rgba(${accentRgb},0.18)` : "rgba(255,255,255,0.04)"}
+                    stroke={shape === "custom" ? accent : "#4b5563"}
+                    strokeWidth="1.8"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M20,9.5 L22.8,17.5 L31.3,18.1 L25.1,23.5 L27.1,31.8 L20,27.5 L12.9,31.8 L14.9,23.5 L8.7,18.1 L17.2,17.5 Z"
+                    fill="none"
+                    stroke={shape === "custom" ? `rgba(${accentRgb},0.4)` : "rgba(255,255,255,0.08)"}
+                    strokeWidth="1"
+                    strokeDasharray="2.5 2.5"
+                    strokeLinejoin="round"
+                  />
                 </svg>
                 <div>
                   <p style={{ fontSize: "0.8125rem", fontWeight: 700, color: "white" }}>Custom Shape</p>
