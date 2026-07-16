@@ -32,6 +32,13 @@ interface Props {
   /** Physical size (inches) the sticker is printed at, if already chosen — used to scale the vector cut-line offset accurately. */
   widthIn?: number;
   heightIn?: number;
+  /**
+   * "sticker" (default) shows the full shape/fit-mode/cutline-color controls
+   * and generates a production vector cutline. "simple" is for products that
+   * aren't cut to the artwork's shape (banners, laser engraving, etc.) — just
+   * upload + proof preview, no cutline UI or file.
+   */
+  mode?: "sticker" | "simple";
   onApprove: (proof: ProofResult) => void;
   onClose: (changeNote?: string) => void;
 }
@@ -83,7 +90,8 @@ function getClipStyle(shape: ShapeId, fitMode: FitMode, rc: RoundedCorners): Rea
   }
 }
 
-export default function PreflightModal({ file, initialShape, material, widthIn, heightIn, onApprove, onClose }: Props) {
+export default function PreflightModal({ file, initialShape, material, widthIn, heightIn, mode = "sticker", onApprove, onClose }: Props) {
+  const isSimple = mode === "simple";
   const [uploadStatus, setUploadStatus] = useState<"loading" | "ready" | "error">("loading");
   const [progress, setProgress] = useState(0);
   const [processedUrl, setProcessedUrl] = useState("");
@@ -147,7 +155,7 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
 
   return (
     <div className="fixed inset-0 z-200 bg-black/85 flex items-center justify-center p-3 sm:p-4">
-      <div className="relative bg-[#0c0c14] border border-white/[0.09] w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col md:flex-row shadow-2xl">
+      <div className="relative bg-[#0c0c14] border border-white/9 w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col md:flex-row shadow-2xl">
 
         {/* Close */}
         <button
@@ -216,9 +224,9 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                 style={{
                   width: `${w}px`,
                   height: `${h}px`,
-                  ...clipStyle,
-                  overflow: isEdge ? "visible" : "hidden",
-                  border: isEdge ? "none" : `2px dashed ${cutlineColor}`,
+                  ...(isSimple ? {} : clipStyle),
+                  overflow: isSimple || isEdge ? "visible" : "hidden",
+                  border: isSimple ? "none" : isEdge ? "none" : `2px dashed ${cutlineColor}`,
                   flexShrink: 0,
                   transition: "all 0.2s ease",
                 }}
@@ -231,10 +239,10 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                   style={{
                     width: "100%",
                     height: "100%",
-                    objectFit: isEdge ? "contain" : fitMode === "fill" ? "cover" : "contain",
+                    objectFit: isSimple ? "contain" : isEdge ? "contain" : fitMode === "fill" ? "cover" : "contain",
                     display: "block",
                     transition: "filter 0.15s ease",
-                    ...(isEdge ? { filter: "url(#cutline-outline)", willChange: "filter" } : {}),
+                    ...(!isSimple && isEdge ? { filter: "url(#cutline-outline)", willChange: "filter" } : {}),
                   }}
                 />
               </div>
@@ -257,7 +265,8 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
               <p className="text-xs text-gray-500 mt-0.5 capitalize">{material}</p>
             </div>
 
-            {/* Shape selector */}
+            {/* Shape selector — only relevant for products cut to the artwork's shape */}
+            {!isSimple && (
             <div>
               <p className="text-[9px] tracking-[0.35em] uppercase text-gray-500 mb-2" style={{ fontFamily: "var(--font-orbitron)" }}>Shape</p>
               <div className="grid grid-cols-5 gap-1">
@@ -281,8 +290,10 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                 ))}
               </div>
             </div>
+            )}
 
             {/* Fit mode */}
+            {!isSimple && (
             <div>
               <p className="text-[9px] tracking-[0.35em] uppercase text-gray-500 mb-2" style={{ fontFamily: "var(--font-orbitron)" }}>Mode</p>
               <div className="flex gap-1">
@@ -308,9 +319,10 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                 {fitMode === "fill" ? "Image fills shape (may crop)" : fitMode === "fit" ? "Image fits inside shape" : "Cutline follows image edges"}
               </p>
             </div>
+            )}
 
             {/* Rounded corners — only for square/rect in non-edge mode */}
-            {showRoundedCorners && (
+            {!isSimple && showRoundedCorners && (
               <div>
                 <p className="text-[9px] tracking-[0.35em] uppercase text-gray-500 mb-2" style={{ fontFamily: "var(--font-orbitron)" }}>Rounded Corners</p>
                 <div className="grid grid-cols-4 gap-1">
@@ -339,7 +351,7 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
             )}
 
             {/* Cutline thickness — only for edge mode */}
-            {isEdge && (
+            {!isSimple && isEdge && (
               <div>
                 <p className="text-[9px] tracking-[0.35em] uppercase text-gray-500 mb-2" style={{ fontFamily: "var(--font-orbitron)" }}>Cutline</p>
                 <div className="grid grid-cols-3 gap-1.5">
@@ -368,7 +380,7 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
             )}
 
             {/* Cutline Color — only in edge (die-cut) mode */}
-            {isEdge && (
+            {!isSimple && isEdge && (
               <div>
                 <p className="text-[9px] tracking-[0.35em] uppercase text-gray-500 mb-2" style={{ fontFamily: "var(--font-orbitron)" }}>Cutline Color</p>
                 <div className="flex flex-wrap gap-2 items-center">
@@ -438,7 +450,9 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                   }
                 </svg>
                 <p className="text-[10px] text-gray-500 leading-relaxed">
-                  {removedBg ? "Background removed. Green line = cutline." : "No background removal. Image prints as-is."}
+                  {removedBg
+                    ? isSimple ? "Background removed." : "Background removed. Green line = cutline."
+                    : "No background removal. Image prints as-is."}
                 </p>
               </div>
             )}
@@ -491,6 +505,7 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                         fd.append("roundedCorners", roundedCorners);
                         fd.append("removedBackground", String(removedBg));
                         fd.append("fileName", file.name);
+                        fd.append("skipCutline", String(isSimple));
                         if (widthIn) fd.append("widthIn", String(widthIn));
                         if (heightIn) fd.append("heightIn", String(heightIn));
                         const resp2 = await fetch("/api/proof", { method: "POST", body: fd });
@@ -537,7 +552,9 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                 What is Mission Launch?
               </p>
               <p className="text-[10px] text-gray-600 leading-relaxed">
-                Automated proof system. We process your file and show a cutline preview. A human reviews every order before printing.
+                {isSimple
+                  ? "Automated proof system. We process your file and show a preview. A human reviews every order before printing."
+                  : "Automated proof system. We process your file and show a cutline preview. A human reviews every order before printing."}
               </p>
               <p className="text-[10px] text-gray-600 leading-relaxed mt-1.5">
                 If the preview doesn&apos;t look right, tap{" "}

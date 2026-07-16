@@ -108,7 +108,7 @@ export default function EasyPeelConfigurator() {
       cutType,
       title: "Easy Peel Stickers",
       subtitle: `Easy Peel · ${finish} · ${cutLabel} · ${sizeLabel} · Qty ${activeQty}`,
-      thumbnail: proofResult?.shopifyUrl ?? proofResult?.designUrl ?? "",
+      thumbnail: proofResult?.designUrl ?? proofResult?.shopifyUrl ?? "",
       unitLabel: "stickers",
       totalPrice: activeTotal,
       quantity: activeQty,

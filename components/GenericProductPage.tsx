@@ -98,7 +98,7 @@ export default function GenericProductPage({ product }: { product: ShopifyProduc
       productTitle: product.title,
       title: product.title,
       subtitle: activeVariant.title !== "Default Title" ? activeVariant.title : "",
-      thumbnail: proofResult?.shopifyUrl ?? product.featuredImage?.url ?? "",
+      thumbnail: proofResult?.designUrl ?? proofResult?.shopifyUrl ?? product.featuredImage?.url ?? "",
       unitLabel: "item",
       totalPrice: unitPrice * qty,
       quantity: qty,
@@ -119,6 +119,7 @@ export default function GenericProductPage({ product }: { product: ShopifyProduc
           file={file}
           initialShape={detectShape()}
           material={product.title}
+          mode="simple"
           onApprove={(proof) => { setProofResult(proof); setChangeNote(""); setPreflightOpen(false); }}
           onClose={(note) => { setPreflightOpen(false); if (note) setChangeNote(note); }}
         />

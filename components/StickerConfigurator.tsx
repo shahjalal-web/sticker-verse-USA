@@ -251,7 +251,7 @@ export default function StickerConfigurator({ product }: { product: ShopifyProdu
       kind: "vinyl-sticker",
       title: product.title,
       subtitle: `${MATERIALS.find((m) => m.id === material)?.label} · ${sizeLabel} · ${shape}`,
-      thumbnail: proofResult?.shopifyUrl ?? proofResult?.designUrl ?? product.featuredImage?.url ?? "",
+      thumbnail: proofResult?.designUrl ?? proofResult?.shopifyUrl ?? product.featuredImage?.url ?? "",
       unitLabel: "stickers",
       totalPrice: activeTotal,
       quantity: activeTier.qty,

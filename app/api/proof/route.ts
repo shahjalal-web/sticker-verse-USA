@@ -153,6 +153,9 @@ export async function POST(req: NextRequest) {
     const fileName = (formData.get("fileName") as string) || "sticker.png";
     const widthIn = parseFloat((formData.get("widthIn") as string) || "") || undefined;
     const heightIn = parseFloat((formData.get("heightIn") as string) || "") || undefined;
+    // Products not cut to the artwork's shape (banners, laser engraving, ...)
+    // skip both the raster cutline-outline preview and the vector cut file.
+    const skipCutline = formData.get("skipCutline") === "true";
 
     const buf = Buffer.from(await file.arrayBuffer());
     const mime = file.type || "image/png";
@@ -167,9 +170,11 @@ export async function POST(req: NextRequest) {
       const sharpLib = (await import("sharp")).default;
 
       let proofBuf: Buffer = buf;
-      try {
-        proofBuf = await generateProof(buf, shape, fitMode, borderThickness, roundedCorners, removedBackground);
-      } catch { /* use raw buf as fallback */ }
+      if (!skipCutline) {
+        try {
+          proofBuf = await generateProof(buf, shape, fitMode, borderThickness, roundedCorners, removedBackground);
+        } catch { /* use raw buf as fallback */ }
+      }
 
       // Composite proof over white background so the cutline is clearly visible
       // in Shopify admin (Shopify renders transparent PNGs as gray, hiding the cutline)
@@ -193,29 +198,32 @@ export async function POST(req: NextRequest) {
 
       // Production cut path — the real vector cutline for the Graphtec
       // cutter, separate from the raster preview above. Best-effort: a
-      // failure here must never block proof approval.
-      try {
-        const cut = await buildCutPath({
-          buf,
-          shape: shape as CutShape,
-          fitMode: fitMode as CutFitMode,
-          roundedCorners: roundedCorners as CutRoundedCorners,
-          removedBackground,
-          widthIn,
-          heightIn,
-        });
-        if (cut.pathD.length && cut.width && cut.height) {
-          const pngDataUri = `data:image/png;base64,${buf.toString("base64")}`;
-          const svg = buildCutSvg(pngDataUri, cut.width, cut.height, cut.pathD);
-          const pdfBuf = await buildCutPdf(buf, cut.width, cut.height, cut.pathD);
-          [cutFileUrl, productionPdfUrl] = await Promise.all([
-            uploadFileToShopify(Buffer.from(svg, "utf-8"), `${baseName}_${shape}_cutline.svg`, "image/svg+xml").catch((e) => { console.error("[/api/proof] cutFile upload failed", e); return null; }),
-            uploadFileToShopify(pdfBuf, `${baseName}_${shape}_cutline.pdf`, "application/pdf").catch((e) => { console.error("[/api/proof] productionPdf upload failed", e); return null; }),
-          ]);
+      // failure here must never block proof approval. Skipped for products
+      // that aren't cut to the artwork's shape (banners, laser engraving, ...).
+      if (!skipCutline) {
+        try {
+          const cut = await buildCutPath({
+            buf,
+            shape: shape as CutShape,
+            fitMode: fitMode as CutFitMode,
+            roundedCorners: roundedCorners as CutRoundedCorners,
+            removedBackground,
+            widthIn,
+            heightIn,
+          });
+          if (cut.pathD.length && cut.width && cut.height) {
+            const pngDataUri = `data:image/png;base64,${buf.toString("base64")}`;
+            const svg = buildCutSvg(pngDataUri, cut.width, cut.height, cut.pathD);
+            const pdfBuf = await buildCutPdf(buf, cut.width, cut.height, cut.pathD);
+            [cutFileUrl, productionPdfUrl] = await Promise.all([
+              uploadFileToShopify(Buffer.from(svg, "utf-8"), `${baseName}_${shape}_cutline.svg`, "image/svg+xml").catch((e) => { console.error("[/api/proof] cutFile upload failed", e); return null; }),
+              uploadFileToShopify(pdfBuf, `${baseName}_${shape}_cutline.pdf`, "application/pdf").catch((e) => { console.error("[/api/proof] productionPdf upload failed", e); return null; }),
+            ]);
+          }
+        } catch (err) {
+          // non-fatal — proof still stands without a production cut file
+          console.error("[/api/proof] cut-path generation failed", err);
         }
-      } catch (err) {
-        // non-fatal — proof still stands without a production cut file
-        console.error("[/api/proof] cut-path generation failed", err);
       }
     } else {
       try {

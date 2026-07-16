@@ -153,7 +153,7 @@ export default function VinylConfigurator({ initialMaterial = "vinyl" }: { initi
       cutType,
       title: "Vinyl Stickers",
       subtitle: `${materialTag} · ${finish} · ${cutLabel} · ${sizeLabel} · Qty ${activeQty}`,
-      thumbnail: proofResult?.shopifyUrl ?? proofResult?.designUrl ?? "",
+      thumbnail: proofResult?.designUrl ?? proofResult?.shopifyUrl ?? "",
       unitLabel: "stickers",
       totalPrice: activeTotal,
       quantity: activeQty,

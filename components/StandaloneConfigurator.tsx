@@ -359,7 +359,7 @@ export default function StandaloneConfigurator({ stickerType }: { stickerType: S
       cutType,
       title: config.title,
       subtitle: `${materialLabel} · ${cutType} · ${sizeLabel} · Qty ${activeQty}`,
-      thumbnail: proofResult?.shopifyUrl ?? proofResult?.designUrl ?? "", unitLabel: "stickers", totalPrice: activeTotal, quantity: activeQty,
+      thumbnail: proofResult?.designUrl ?? proofResult?.shopifyUrl ?? "", unitLabel: "stickers", totalPrice: activeTotal, quantity: activeQty,
       shape, material,
       size: sizeId === "custom" ? "custom" : sizeId,
       customWidth:  sizeId === "custom" && customW ? Number(customW) : undefined,
