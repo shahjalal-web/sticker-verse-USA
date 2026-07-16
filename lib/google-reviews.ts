@@ -17,22 +17,21 @@ export type PlaceDetails = {
 };
 
 const API_KEY = process.env.GOOGLE_PLACES_API_KEY ?? "";
-const PLACE_NAME = "Stickerverse USA";
 
-async function findPlaceId(): Promise<string | null> {
-  if (!API_KEY) return null;
-  const url = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(PLACE_NAME)}&inputtype=textquery&fields=place_id&key=${API_KEY}`;
-  const res = await fetch(url, { next: { revalidate: 86400 } });
-  const data = await res.json();
-  return data.candidates?.[0]?.place_id ?? null;
-}
+// Stickerverse USA — 10507 Clark Rd SE, Yelm, WA 98597 (confirmed 2026-07-16
+// against the client's actual Google Business Profile). Hardcoded rather
+// than resolved by a live text search: searching by name alone previously
+// matched a same-category competitor ("Sticker Genius") on Google's side,
+// and the wrong place_id got cached for up to 24h at a time. A fixed ID
+// removes that failure mode entirely — verify at
+// https://www.google.com/maps/place/?q=place_id:ChIJAxe6p4y3ZWERKAhSO0oD01U
+// if the business ever moves or the profile needs re-verifying.
+const PLACE_ID = "ChIJAxe6p4y3ZWERKAhSO0oD01U";
 
 export async function getGoogleReviews(): Promise<PlaceDetails | null> {
   if (!API_KEY) return null;
   try {
-    const placeId = await findPlaceId();
-    if (!placeId) return null;
-    const base = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${API_KEY}`;
+    const base = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${PLACE_ID}&key=${API_KEY}`;
     // The Places API caps every request at 5 reviews, and some of those may be
     // rating-only (no text). Fetching both sort orders yields two mostly
     // distinct sets, so after merging there are enough text reviews to fill
