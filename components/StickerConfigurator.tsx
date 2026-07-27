@@ -224,7 +224,12 @@ export default function StickerConfigurator({ product }: { product: ShopifyProdu
     return { perUnit, total };
   }
 
-  const activeTier = QTY_TIERS.find((t) => t.qty === selectedQty) ?? QTY_TIERS[0];
+  // Deal quantities (e.g. 150) don't necessarily exist in QTY_TIERS, which
+  // would otherwise silently fall back to QTY_TIERS[0] (50) and desync the
+  // cart's displayed quantity from the deal price actually sent to Shopify.
+  const activeTier = dealInfo.isDeal && dealInfo.dealQty
+    ? { qty: dealInfo.dealQty, discount: 0 }
+    : QTY_TIERS.find((t) => t.qty === selectedQty) ?? QTY_TIERS[0];
   // For deals, Shopify price IS the total bundle price, not per-sticker
   const dealTotal = dealInfo.isDeal && dealInfo.dealQty ? baseUnitPrice : null;
   const dealPerUnit = dealInfo.isDeal && dealInfo.dealQty
