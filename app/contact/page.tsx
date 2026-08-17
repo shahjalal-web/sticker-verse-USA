@@ -57,18 +57,18 @@ export default function ContactPage() {
       {/* ── Hero ── */}
       <section className="relative px-6 pt-16 pb-16 text-center overflow-hidden">
         <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[380px] rounded-full pointer-events-none"
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-175 h-95 rounded-full pointer-events-none"
           style={{ background: "radial-gradient(ellipse, rgba(100,80,220,0.1) 0%, transparent 68%)" }}
         />
 
         <div className="relative">
           <div className="inline-flex items-center gap-3 mb-7 animate-fade-in">
-            <span className="w-8 h-px bg-gradient-to-r from-transparent to-white/20" />
+            <span className="w-8 h-px bg-linear-to-r from-transparent to-white/20" />
             <span className="text-[8px] tracking-[0.55em] uppercase text-gray-500"
               style={{ fontFamily: "var(--font-orbitron)" }}>
               Get in Touch
             </span>
-            <span className="w-8 h-px bg-gradient-to-l from-transparent to-white/20" />
+            <span className="w-8 h-px bg-linear-to-l from-transparent to-white/20" />
           </div>
 
           <h1
@@ -88,7 +88,7 @@ export default function ContactPage() {
           </p>
         </div>
 
-        <div className="h-px mt-16 bg-gradient-to-r from-transparent via-white/[0.09] to-transparent" />
+        <div className="h-px mt-16 bg-linear-to-r from-transparent via-white/9 to-transparent" />
       </section>
 
       {/* ── Contact cards ── */}
@@ -97,10 +97,10 @@ export default function ContactPage() {
           {CONTACT_METHODS.map((m, i) => (
             <div
               key={m.label}
-              className="group border border-white/[0.07] hover:border-white/[0.18] bg-white/[0.015] hover:bg-white/[0.03] p-7 text-center flex flex-col items-center gap-4 transition-all duration-400 hover:-translate-y-1 animate-fade-up"
+              className="group border border-white/[0.07] hover:border-white/18 bg-white/1.5 hover:bg-white/3 p-7 text-center flex flex-col items-center gap-4 transition-all duration-400 hover:-translate-y-1 animate-fade-up"
               style={{ animationDelay: `${i * 80}ms`, animationFillMode: "both" }}
             >
-              <div className="w-11 h-11 border border-white/[0.1] flex items-center justify-center text-gray-500 group-hover:border-white/25 group-hover:text-white transition-all duration-300">
+              <div className="w-11 h-11 border border-white/10 flex items-center justify-center text-gray-500 group-hover:border-white/25 group-hover:text-white transition-all duration-300">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d={m.icon} />
                 </svg>
@@ -123,7 +123,7 @@ export default function ContactPage() {
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-3 mb-5">
-              <span className="w-8 h-px bg-gradient-to-r from-transparent to-white/20" />
+              <span className="w-8 h-px bg-linear-to-r from-transparent to-white/20" />
               <span className="text-[8px] tracking-[0.5em] uppercase text-gray-500"
                 style={{ fontFamily: "var(--font-orbitron)" }}>
                 Send a Message

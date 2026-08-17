@@ -98,6 +98,8 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
   const [originalUrl, setOriginalUrl] = useState("");
   const [removedBg, setRemovedBg] = useState(false);
   const [bgStatus, setBgStatus] = useState<"processing" | "done" | "skipped" | "failed">("processing");
+  /** The remove.bg result, kept aside from `processedUrl` so the customer can toggle back to it after switching to the original. */
+  const [bgRemovedUrl, setBgRemovedUrl] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const [shape, setShape] = useState<ShapeId>(initialShape);
@@ -140,7 +142,10 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
         if (!resp.ok) { setBgStatus((prev) => (prev === "processing" ? "failed" : prev)); return; }
         const data = await resp.json() as { processedUrl: string | null; removedBackground: boolean };
         if (cancelled) return;
-        if (data.processedUrl) setProcessedUrl(data.processedUrl);
+        if (data.processedUrl) {
+          setBgRemovedUrl(data.processedUrl);
+          setProcessedUrl(data.processedUrl);
+        }
         setRemovedBg(data.removedBackground ?? false);
         setBgStatus((prev) => (prev === "processing" ? "done" : prev));
       } catch {
@@ -171,6 +176,16 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
     abortRef.current?.abort();
     setRemovedBg(false);
     setBgStatus("skipped");
+  }
+
+  function handleUseVersion(useRemoved: boolean) {
+    if (useRemoved && bgRemovedUrl) {
+      setProcessedUrl(bgRemovedUrl);
+      setRemovedBg(true);
+    } else {
+      setProcessedUrl(originalUrl);
+      setRemovedBg(false);
+    }
   }
 
   const SHAPES: ShapeId[] = ["die-cut", "circle", "oval", "square", "rectangle"];
@@ -488,13 +503,40 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                     : <><line x1="12" y1="8" x2="12" y2="12" /><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12.01" y2="16" /></>
                   }
                 </svg>
-                <p className="text-[10px] text-gray-500 leading-relaxed">
-                  {removedBg
-                    ? isSimple ? "Background removed." : "Background removed. Green line = cutline."
-                    : bgStatus === "skipped"
-                    ? "Background removal skipped. Image prints as-is."
-                    : "No background removal. Image prints as-is."}
-                </p>
+                <div className="flex-1">
+                  <p className="text-[10px] text-gray-500 leading-relaxed">
+                    {removedBg
+                      ? isSimple ? "Background removed." : "Background removed. Green line = cutline."
+                      : bgStatus === "skipped"
+                      ? "Background removal skipped. Image prints as-is."
+                      : "No background removal. Image prints as-is."}
+                  </p>
+                  {bgRemovedUrl && (
+                    <div className="flex gap-1.5 mt-2">
+                      <button
+                        onClick={() => handleUseVersion(true)}
+                        className={`px-2 py-1 text-[9px] tracking-wide uppercase border transition-colors ${
+                          removedBg ? "border-green-500/40 bg-green-500/10 text-green-400" : "border-white/10 text-gray-500 hover:text-gray-300 hover:border-white/25"
+                        }`}
+                      >
+                        Background removed
+                      </button>
+                      <button
+                        onClick={() => handleUseVersion(false)}
+                        className={`px-2 py-1 text-[9px] tracking-wide uppercase border transition-colors ${
+                          !removedBg ? "border-green-500/40 bg-green-500/10 text-green-400" : "border-white/10 text-gray-500 hover:text-gray-300 hover:border-white/25"
+                        }`}
+                      >
+                        Original upload
+                      </button>
+                    </div>
+                  )}
+                  {bgRemovedUrl && removedBg && (
+                    <p className="text-[9px] text-gray-600 mt-1.5 leading-relaxed">
+                      Doesn&apos;t look right? Switch to <span className="text-gray-400">Original upload</span> above.
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 

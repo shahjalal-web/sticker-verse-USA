@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.remove.bg)",
+      "Bash(node \"C:\\\\Users\\\\hp\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--PROJECTS-Josh-sticker-selling-website-front-end\\\\e47b378f-3fc0-446b-8670-b7616984bfb0\\\\scratchpad\\\\make-test-images.mjs\")",
+      "Bash(node scratch-make-test-images.mjs)",
+      "Bash(time curl -s -X POST http://localhost:3000/api/upload -F \"file=@scratch-test-white-star.jpg;type=image/jpeg\" -o scratch-result-a.json -w \"HTTP %{http_code}\\\\n\")",
+      "Bash(node -e \"const d=require\\('./scratch-result-a.json'\\); console.log\\('removedBackground:', d.removedBackground, '| processedUrl present:', !!d.processedUrl, '| length:', d.processedUrl ? d.processedUrl.length : 0\\)\")",
+      "Bash(ls -la /c/Users/hp/AppData/Local/Temp/next-panic-*.log 2>/dev/null | tail -3)",
+      "Read(//c/Users/hp/AppData/Local/Temp/**)",
+      "Bash(head -c 3000 /c/Users/hp/AppData/Local/Temp/next-panic-82bb3702c097ea59c8372f5d7b9daf6a.log)",
+      "Bash(timeout 40 bash -c 'until curl -sf http://localhost:3000 >/dev/null 2>&1; do sleep 1; done')"
+    ]
+  }
+}

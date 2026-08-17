@@ -200,15 +200,16 @@ export async function POST(req: NextRequest) {
         }
       } catch { /* use proofBuf as-is */ }
 
-      [designUrl, shopifyUrl] = await Promise.all([
-        uploadFileToShopify(pngBuf, `${baseName}_design.png`, "image/png").catch(() => null),
-        uploadFileToShopify(proofForAdmin, `${baseName}_${shape}_proof.png`, "image/png").catch(() => null),
-      ]);
-
-      // Production cut path — the real vector cutline for the Graphtec
-      // cutter, separate from the raster preview above. Best-effort: a
-      // failure here must never block proof approval. Skipped for products
-      // that aren't cut to the artwork's shape (banners, laser engraving, ...).
+      // Build the production cut path (local CPU work, no network) before
+      // kicking off any uploads, so every upload below can run in a single
+      // batch instead of two sequential round trips — each Shopify upload
+      // can take a few seconds while it processes the file, and running
+      // them back-to-back instead of together was the main source of the
+      // multi-second wait after "Take this design". Best-effort: a failure
+      // here must never block proof approval. Skipped for products that
+      // aren't cut to the artwork's shape (banners, laser engraving, ...).
+      let svg: string | null = null;
+      let pdfBuf: Buffer | null = null;
       if (!skipCutline) {
         try {
           const cut = await buildCutPath({
@@ -222,18 +223,25 @@ export async function POST(req: NextRequest) {
           });
           if (cut.pathD.length && cut.width && cut.height) {
             const pngDataUri = `data:image/png;base64,${pngBuf.toString("base64")}`;
-            const svg = buildCutSvg(pngDataUri, cut.width, cut.height, cut.pathD);
-            const pdfBuf = await buildCutPdf(pngBuf, cut.width, cut.height, cut.pathD);
-            [cutFileUrl, productionPdfUrl] = await Promise.all([
-              uploadFileToShopify(Buffer.from(svg, "utf-8"), `${baseName}_${shape}_cutline.svg`, "image/svg+xml").catch((e) => { console.error("[/api/proof] cutFile upload failed", e); return null; }),
-              uploadFileToShopify(pdfBuf, `${baseName}_${shape}_cutline.pdf`, "application/pdf").catch((e) => { console.error("[/api/proof] productionPdf upload failed", e); return null; }),
-            ]);
+            svg = buildCutSvg(pngDataUri, cut.width, cut.height, cut.pathD);
+            pdfBuf = await buildCutPdf(pngBuf, cut.width, cut.height, cut.pathD);
           }
         } catch (err) {
           // non-fatal — proof still stands without a production cut file
           console.error("[/api/proof] cut-path generation failed", err);
         }
       }
+
+      [designUrl, shopifyUrl, cutFileUrl, productionPdfUrl] = await Promise.all([
+        uploadFileToShopify(pngBuf, `${baseName}_design.png`, "image/png").catch(() => null),
+        uploadFileToShopify(proofForAdmin, `${baseName}_${shape}_proof.png`, "image/png").catch(() => null),
+        svg
+          ? uploadFileToShopify(Buffer.from(svg, "utf-8"), `${baseName}_${shape}_cutline.svg`, "image/svg+xml").catch((e) => { console.error("[/api/proof] cutFile upload failed", e); return null; })
+          : Promise.resolve(null),
+        pdfBuf
+          ? uploadFileToShopify(pdfBuf, `${baseName}_${shape}_cutline.pdf`, "application/pdf").catch((e) => { console.error("[/api/proof] productionPdf upload failed", e); return null; })
+          : Promise.resolve(null),
+      ]);
     } else {
       try {
         const ext = fileName.match(/\.[^.]+$/)?.[0] ?? "";

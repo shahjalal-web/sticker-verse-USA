@@ -44,21 +44,21 @@ export default function AboutPage() {
       <section className="relative px-6 pt-16 pb-20 text-center overflow-hidden">
         {/* Glow */}
         <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full pointer-events-none"
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-175 h-100 rounded-full pointer-events-none"
           style={{ background: "radial-gradient(ellipse, rgba(100,80,220,0.11) 0%, transparent 68%)" }}
         />
 
         <div className="relative">
           {/* Eyebrow */}
           <div className="inline-flex items-center gap-3 mb-7 animate-fade-in">
-            <span className="w-8 h-px bg-gradient-to-r from-transparent to-white/20" />
+            <span className="w-8 h-px bg-linear-to-r from-transparent to-white/20" />
             <span
               className="text-[8px] tracking-[0.55em] uppercase text-gray-500"
               style={{ fontFamily: "var(--font-orbitron)" }}
             >
               Our Story
             </span>
-            <span className="w-8 h-px bg-gradient-to-l from-transparent to-white/20" />
+            <span className="w-8 h-px bg-linear-to-l from-transparent to-white/20" />
           </div>
 
           <h1
@@ -94,7 +94,7 @@ export default function AboutPage() {
             </Link>
             <Link
               href="/contact"
-              className="inline-flex items-center gap-3 text-[10px] font-bold tracking-[0.25em] uppercase px-8 py-4 border border-white/[0.12] text-gray-300 hover:border-white/30 hover:text-white transition-all duration-200"
+              className="inline-flex items-center gap-3 text-[10px] font-bold tracking-[0.25em] uppercase px-8 py-4 border border-white/12 text-gray-300 hover:border-white/30 hover:text-white transition-all duration-200"
               style={{ fontFamily: "var(--font-orbitron)" }}
             >
               Get in Touch
@@ -102,16 +102,16 @@ export default function AboutPage() {
           </div>
         </div>
 
-        <div className="h-px mt-20 bg-gradient-to-r from-transparent via-white/[0.09] to-transparent" />
+        <div className="h-px mt-20 bg-linear-to-r from-transparent via-white/9 to-transparent" />
       </section>
 
       {/* ── Stats ── */}
       <section className="px-6 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/[0.05] border border-white/[0.05]">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 border border-white/5">
           {STATS.map((stat, i) => (
             <div
               key={stat.label}
-              className="bg-[#060608] px-8 py-10 text-center group hover:bg-white/[0.02] transition-colors duration-300 animate-fade-up"
+              className="bg-[#060608] px-8 py-10 text-center group hover:bg-white/2 transition-colors duration-300 animate-fade-up"
               style={{ animationDelay: `${i * 80}ms`, animationFillMode: "both" }}
             >
               <p
@@ -172,12 +172,12 @@ export default function AboutPage() {
       <section className="px-6 py-16">
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-3 mb-5">
-            <span className="w-8 h-px bg-gradient-to-r from-transparent to-white/20" />
+            <span className="w-8 h-px bg-linear-to-r from-transparent to-white/20" />
             <span className="text-[8px] tracking-[0.5em] uppercase text-gray-500"
               style={{ fontFamily: "var(--font-orbitron)" }}>
               What We Stand For
             </span>
-            <span className="w-8 h-px bg-gradient-to-l from-transparent to-white/20" />
+            <span className="w-8 h-px bg-linear-to-l from-transparent to-white/20" />
           </div>
           <h2
             className="text-2xl md:text-4xl font-bold text-white"
@@ -191,10 +191,10 @@ export default function AboutPage() {
           {VALUES.map((v, i) => (
             <div
               key={v.title}
-              className="group border border-white/[0.07] hover:border-white/[0.18] bg-white/[0.015] hover:bg-white/[0.03] p-7 flex flex-col gap-5 transition-all duration-400 hover:-translate-y-1 animate-fade-up"
+              className="group border border-white/[0.07] hover:border-white/18 bg-white/1.5 hover:bg-white/3 p-7 flex flex-col gap-5 transition-all duration-400 hover:-translate-y-1 animate-fade-up"
               style={{ animationDelay: `${i * 80}ms`, animationFillMode: "both" }}
             >
-              <div className="w-11 h-11 border border-white/[0.1] flex items-center justify-center text-gray-500 group-hover:border-white/25 group-hover:text-white transition-all duration-300">
+              <div className="w-11 h-11 border border-white/10 flex items-center justify-center text-gray-500 group-hover:border-white/25 group-hover:text-white transition-all duration-300">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d={v.icon} />
                 </svg>
