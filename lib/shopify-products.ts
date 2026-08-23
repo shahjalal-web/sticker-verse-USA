@@ -38,6 +38,7 @@ export type ShopifyProduct = {
   images: ShopifyImage[];
   options: ShopifyOption[];
   variants: ShopifyVariant[];
+  collections: string[];
 };
 
 const PRODUCT_BY_HANDLE_QUERY = `
@@ -55,6 +56,9 @@ const PRODUCT_BY_HANDLE_QUERY = `
         id
         name
         values
+      }
+      collections(first: 10) {
+        nodes { handle }
       }
       variants(first: 100) {
         nodes {
@@ -92,6 +96,7 @@ type RawProductResp = {
     featuredImage: ShopifyImage | null;
     images: { nodes: ShopifyImage[] };
     options: Array<{ id: string; name: string; values: string[] }>;
+    collections: { nodes: { handle: string }[] };
     variants: { nodes: RawVariantNode[] };
   } | null;
 };
@@ -114,6 +119,7 @@ async function fetchProductByHandle(handle: string): Promise<ShopifyProduct | nu
     featuredImage: p.featuredImage,
     images: p.images.nodes,
     options: p.options,
+    collections: p.collections.nodes.map((c) => c.handle),
     variants: p.variants.nodes.map((v) => ({
       id: v.id,
       title: v.title,
@@ -155,4 +161,13 @@ export function isStickerProduct(product: ShopifyProduct): boolean {
     text.includes("vinyl") ||
     text.includes("decal")
   );
+}
+
+// Products in this collection are ready-made designs the customer picks
+// as-is — the sticker configurator should skip the "upload your design"
+// step for them and use the product's own photo as the design instead.
+const PREMADE_DESIGN_COLLECTION_HANDLE = "grab-go-designs";
+
+export function isPremadeDesignProduct(product: ShopifyProduct): boolean {
+  return product.collections.includes(PREMADE_DESIGN_COLLECTION_HANDLE);
 }

@@ -4,9 +4,10 @@ import StandaloneConfigurator, { type StickerType } from "@/components/Standalon
 import VinylConfigurator, { type MaterialId } from "@/components/VinylConfigurator";
 import QRConfigurator from "@/components/QRConfigurator";
 import EasyPeelConfigurator from "@/components/EasyPeelConfigurator";
+import StaticClingConfigurator from "@/components/StaticClingConfigurator";
 
 const VALID_TYPES: StickerType[] = ["vinyl", "holographic", "glitter", "chrome", "sheets"];
-const EXTRA_TYPES = ["qr", "easy-peel"] as const;
+const EXTRA_TYPES = ["qr", "easy-peel", "static-cling"] as const;
 type ExtraType = (typeof EXTRA_TYPES)[number];
 
 // Holographic/Glitter/Chrome used to be separate pages — they're now materials
@@ -113,7 +114,13 @@ export default async function StickerTypePage({ params, searchParams }: Props) {
     return (
       <main className="min-h-screen overflow-x-hidden max-w-6xl mx-auto">
         <BackLink />
-        {type === "qr" ? <QRConfigurator /> : <EasyPeelConfigurator />}
+        {type === "qr" ? (
+          <QRConfigurator />
+        ) : type === "easy-peel" ? (
+          <EasyPeelConfigurator />
+        ) : (
+          <StaticClingConfigurator />
+        )}
         <FAQSection />
       </main>
     );

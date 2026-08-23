@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
       if (item.customWidth)  attrs.push({ key: "Custom Width",  value: `${item.customWidth} in` });
       if (item.customHeight) attrs.push({ key: "Custom Height", value: `${item.customHeight} in` });
       if (item.fileName)     attrs.push({ key: "Design File",   value: item.fileName });
+      if (item.placement)    attrs.push({ key: "Window Placement", value: item.placement === "inside" ? "Inside (applied to inside of glass)" : "Outside (applied to outside of glass)" });
 
       // Design File URL — clean bg-removed image (no cutline overlay), for printing
       const designFileUrl = item.proof?.designUrl ?? item.fileUrl;

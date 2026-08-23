@@ -4219,6 +4219,81 @@ export const PRICING: Record<string, SizeTables> = {
         }
       ]
     }
+  },
+  "static-cling": {
+    "2x2": {
+      "contour": [
+        { "qty": 15, "price": 1.09 },
+        { "qty": 25, "price": 1.09 },
+        { "qty": 50, "price": 1.09 },
+        { "qty": 100, "price": 0.71 },
+        { "qty": 200, "price": 0.50 },
+        { "qty": 300, "price": 0.43 },
+        { "qty": 500, "price": 0.35 },
+        { "qty": 1000, "price": 0.28 },
+        { "qty": 2000, "price": 0.21 },
+        { "qty": 3000, "price": 0.19 },
+        { "qty": 4000, "price": 0.19 },
+        { "qty": 5000, "price": 0.17 },
+        { "qty": 10000, "price": 0.16 },
+        { "qty": 11000, "price": 0.14 }
+      ]
+    },
+    "3x3": {
+      "contour": [
+        { "qty": 15, "price": 1.26 },
+        { "qty": 25, "price": 1.26 },
+        { "qty": 50, "price": 1.26 },
+        { "qty": 100, "price": 0.82 },
+        { "qty": 200, "price": 0.58 },
+        { "qty": 300, "price": 0.49 },
+        { "qty": 500, "price": 0.40 },
+        { "qty": 1000, "price": 0.33 },
+        { "qty": 2000, "price": 0.25 },
+        { "qty": 3000, "price": 0.21 },
+        { "qty": 4000, "price": 0.21 },
+        { "qty": 5000, "price": 0.19 },
+        { "qty": 6000, "price": 0.18 },
+        { "qty": 10000, "price": 0.18 },
+        { "qty": 11000, "price": 0.16 }
+      ]
+    },
+    "4x4": {
+      "contour": [
+        { "qty": 15, "price": 1.51 },
+        { "qty": 25, "price": 1.51 },
+        { "qty": 50, "price": 1.51 },
+        { "qty": 100, "price": 1.06 },
+        { "qty": 200, "price": 0.80 },
+        { "qty": 300, "price": 0.70 },
+        { "qty": 500, "price": 0.59 },
+        { "qty": 1000, "price": 0.50 },
+        { "qty": 2000, "price": 0.41 },
+        { "qty": 3000, "price": 0.35 },
+        { "qty": 4000, "price": 0.35 },
+        { "qty": 5000, "price": 0.32 },
+        { "qty": 10000, "price": 0.30 },
+        { "qty": 11000, "price": 0.27 }
+      ]
+    },
+    "5x5": {
+      "contour": [
+        { "qty": 15, "price": 1.79 },
+        { "qty": 25, "price": 1.79 },
+        { "qty": 50, "price": 1.79 },
+        { "qty": 100, "price": 1.34 },
+        { "qty": 200, "price": 1.07 },
+        { "qty": 300, "price": 0.95 },
+        { "qty": 500, "price": 0.84 },
+        { "qty": 1000, "price": 0.71 },
+        { "qty": 2000, "price": 0.59 },
+        { "qty": 3000, "price": 0.55 },
+        { "qty": 4000, "price": 0.55 },
+        { "qty": 5000, "price": 0.50 },
+        { "qty": 10000, "price": 0.48 },
+        { "qty": 11000, "price": 0.46 }
+      ]
+    }
   }
 };
 
@@ -6590,6 +6665,80 @@ export const POPULAR_PRICING: Record<string, SizeTables> = {
           "qty": 11000,
           "price": 0.67
         }
+      ]
+    }
+  },
+  "static-cling": {
+    "3x2": {
+      "contour": [
+        { "qty": 15, "price": 1.25 },
+        { "qty": 25, "price": 1.25 },
+        { "qty": 50, "price": 1.25 },
+        { "qty": 100, "price": 0.81 },
+        { "qty": 200, "price": 0.57 },
+        { "qty": 300, "price": 0.49 },
+        { "qty": 500, "price": 0.40 },
+        { "qty": 1000, "price": 0.33 },
+        { "qty": 2000, "price": 0.23 },
+        { "qty": 3000, "price": 0.21 },
+        { "qty": 4000, "price": 0.21 },
+        { "qty": 5000, "price": 0.18 },
+        { "qty": 10000, "price": 0.17 },
+        { "qty": 11000, "price": 0.15 }
+      ]
+    },
+    "4x3": {
+      "contour": [
+        { "qty": 15, "price": 1.38 },
+        { "qty": 25, "price": 1.38 },
+        { "qty": 50, "price": 1.38 },
+        { "qty": 100, "price": 0.97 },
+        { "qty": 200, "price": 0.73 },
+        { "qty": 300, "price": 0.64 },
+        { "qty": 500, "price": 0.54 },
+        { "qty": 1000, "price": 0.46 },
+        { "qty": 2000, "price": 0.37 },
+        { "qty": 3000, "price": 0.32 },
+        { "qty": 4000, "price": 0.32 },
+        { "qty": 5000, "price": 0.29 },
+        { "qty": 10000, "price": 0.28 },
+        { "qty": 11000, "price": 0.25 }
+      ]
+    },
+    "5.5": {
+      "contour": [
+        { "qty": 15, "price": 1.94 },
+        { "qty": 25, "price": 1.94 },
+        { "qty": 50, "price": 1.94 },
+        { "qty": 100, "price": 1.46 },
+        { "qty": 200, "price": 1.16 },
+        { "qty": 300, "price": 1.03 },
+        { "qty": 500, "price": 0.91 },
+        { "qty": 1000, "price": 0.78 },
+        { "qty": 2000, "price": 0.68 },
+        { "qty": 3000, "price": 0.60 },
+        { "qty": 4000, "price": 0.60 },
+        { "qty": 5000, "price": 0.54 },
+        { "qty": 10000, "price": 0.52 },
+        { "qty": 11000, "price": 0.50 }
+      ]
+    },
+    "11x3": {
+      "contour": [
+        { "qty": 15, "price": 2.01 },
+        { "qty": 25, "price": 2.01 },
+        { "qty": 50, "price": 2.01 },
+        { "qty": 100, "price": 1.51 },
+        { "qty": 200, "price": 1.21 },
+        { "qty": 300, "price": 1.07 },
+        { "qty": 500, "price": 0.94 },
+        { "qty": 1000, "price": 0.80 },
+        { "qty": 2000, "price": 0.66 },
+        { "qty": 3000, "price": 0.62 },
+        { "qty": 4000, "price": 0.62 },
+        { "qty": 5000, "price": 0.56 },
+        { "qty": 10000, "price": 0.53 },
+        { "qty": 11000, "price": 0.52 }
       ]
     }
   }

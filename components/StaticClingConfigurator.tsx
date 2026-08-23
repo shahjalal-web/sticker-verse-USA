@@ -1,0 +1,722 @@
+"use client";
+
+import { useState, useRef, useMemo } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useCart } from "@/lib/cart-store";
+import type { VinylStickerCartItem } from "@/lib/cart-types";
+import PreflightModal, { type ProofResult, type ShapeId as PreflightShapeId } from "./PreflightModal";
+import {
+  unitPrice,
+  savePct,
+  POPULAR_SIZES,
+  QTY_PRESETS,
+  MIN_QTY,
+} from "@/lib/pricing";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type MaterialId = "white" | "clear";
+type Placement = "inside" | "outside";
+type ShapeId = "custom" | "circle" | "oval" | "square" | "rectangle";
+type SizeId = "2x2" | "3x3" | "4x4" | "5x5" | "custom";
+
+const PRODUCT_ID = "static-cling" as const;
+
+// ─── Static config ────────────────────────────────────────────────────────────
+
+const ACCENT = "#6366f1";
+const ACCENT_RGB = "99,102,241";
+
+const MATERIALS: { id: MaterialId; label: string; swatch: React.CSSProperties }[] = [
+  { id: "white", label: "White", swatch: { background: "linear-gradient(160deg,#ffffff 0%,#d8d8d8 100%)" } },
+  { id: "clear", label: "Clear", swatch: { background: "linear-gradient(160deg,rgba(255,255,255,0.16) 0%,rgba(255,255,255,0.04) 100%)", border: "1px dashed rgba(255,255,255,0.28)" } },
+];
+
+const MATERIAL_DESC: Record<MaterialId, string> = {
+  white: "Opaque white static cling — no adhesive residue, repositionable on glass or smooth surfaces.",
+  clear: "See-through static cling film — clings to glass with no adhesive. Great for windows.",
+};
+
+const SHAPES: { id: ShapeId; label: string }[] = [
+  { id: "custom", label: "Custom Shape" },
+  { id: "square", label: "Square" },
+  { id: "circle", label: "Circle" },
+  { id: "rectangle", label: "Rectangle" },
+  { id: "oval", label: "Oval" },
+];
+
+const SIZE_PRESETS: { id: Exclude<SizeId, "custom">; label: string; w: number; h: number }[] = [
+  { id: "2x2", label: '2" × 2"', w: 2, h: 2 },
+  { id: "3x3", label: '3" × 3"', w: 3, h: 3 },
+  { id: "4x4", label: '4" × 4"', w: 4, h: 4 },
+  { id: "5x5", label: '5" × 5"', w: 5, h: 5 },
+];
+
+function fmt(n: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n);
+}
+
+function ShapeIcon({ id, size = 24 }: { id: ShapeId; size?: number }) {
+  const s = size;
+  const sw = Math.max(1, size / 16);
+  switch (id) {
+    case "custom":
+      return (
+        <svg width={s} height={s} viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth={Math.max(1.5, s / 12)} strokeLinejoin="round">
+          <path d="M20,4 L24.1,14.3 L35.2,15.1 L26.7,22.2 L29.4,32.9 L20,27 L10.6,32.9 L13.3,22.2 L4.8,15.1 L15.9,14.3 Z" />
+        </svg>
+      );
+    case "circle":
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw}>
+          <circle cx="12" cy="12" r="10" />
+        </svg>
+      );
+    case "oval":
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw}>
+          <ellipse cx="12" cy="12" rx="7" ry="10" />
+        </svg>
+      );
+    case "square":
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw}>
+          <rect x="3" y="3" width="18" height="18" />
+        </svg>
+      );
+    case "rectangle":
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw}>
+          <rect x="2" y="6" width="20" height="12" />
+        </svg>
+      );
+  }
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export default function StaticClingConfigurator() {
+  const [material, setMaterial] = useState<MaterialId>("white");
+  const [placement, setPlacement] = useState<Placement>("inside");
+  const [shape, setShape] = useState<ShapeId>("custom");
+  const [sizeId, setSizeId] = useState<SizeId>("3x3");
+  const [customW, setCustomW] = useState("");
+  const [customH, setCustomH] = useState("");
+  const [selectedTierQty, setSelectedTierQty] = useState<number | "custom">(100);
+  const [customQtyInput, setCustomQtyInput] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [instructions, setInstructions] = useState("");
+  const [preflightOpen, setPreflightOpen] = useState(false);
+  const [proofResult, setProofResult] = useState<ProofResult | null>(null);
+
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { addItem } = useCart();
+  const router = useRouter();
+
+  const dims = useMemo(() => {
+    if (sizeId === "custom") {
+      const w = parseFloat(customW);
+      const h = parseFloat(customH);
+      return isFinite(w) && isFinite(h) && w > 0 && h > 0 ? { w, h } : null;
+    }
+    const preset = SIZE_PRESETS.find((s) => s.id === sizeId)!;
+    return { w: preset.w, h: preset.h };
+  }, [sizeId, customW, customH]);
+
+  const activeQty = selectedTierQty === "custom" ? parseInt(customQtyInput) || 0 : selectedTierQty;
+
+  function priceFor(qty: number): { perUnit: number; total: number; savings: number } {
+    if (!dims || qty <= 0) return { perUnit: 0, total: 0, savings: 0 };
+    const perUnit = unitPrice(PRODUCT_ID, "contour", dims.w, dims.h, qty);
+    const total = Math.round(perUnit * qty * 100) / 100;
+    const savings = savePct(PRODUCT_ID, "contour", dims.w, dims.h, qty);
+    return { perUnit, total, savings };
+  }
+
+  const { perUnit: activePerUnit, total: activeTotal } = priceFor(activeQty);
+
+  function handleFile(f: File) {
+    setFile(f);
+    setProofResult(null);
+    if (f.type.startsWith("image/")) setFilePreview(URL.createObjectURL(f));
+    else setFilePreview(null);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  }
+
+  function handleAddToCart() {
+    const sizeLabel = sizeId === "custom" ? `${customW || "?"}×${customH || "?"} in` : sizeId.replace("x", "×") + '"';
+    const materialLabel = MATERIALS.find((m) => m.id === material)?.label ?? material;
+    const placementLabel = material === "clear" ? (placement === "inside" ? "Inside window" : "Outside window") : null;
+
+    const cartItem: Omit<VinylStickerCartItem, "id" | "addedAt"> = {
+      kind: "vinyl-sticker",
+      title: "Static Cling Stickers",
+      subtitle: [materialLabel, placementLabel, sizeLabel, `Qty ${activeQty}`].filter(Boolean).join(" · "),
+      thumbnail: proofResult?.designUrl ?? proofResult?.shopifyUrl ?? "",
+      unitLabel: "stickers",
+      totalPrice: activeTotal,
+      quantity: activeQty,
+      shape,
+      material: material === "white" ? "white-static-cling" : "clear-static-cling",
+      size: sizeId === "custom" ? "custom" : sizeId,
+      customWidth: sizeId === "custom" && customW ? Number(customW) : undefined,
+      customHeight: sizeId === "custom" && customH ? Number(customH) : undefined,
+      roundedCorners: null,
+      tierQty: activeQty,
+      perUnit: activePerUnit,
+      fileName: file?.name,
+      fileUrl: proofResult?.designUrl ?? proofResult?.shopifyUrl ?? undefined,
+      instructions: instructions || undefined,
+      placement: material === "clear" ? placement : undefined,
+      proof: proofResult
+        ? {
+            status: "approved" as const,
+            proofUrl: proofResult.shopifyUrl ?? undefined,
+            cutlineUrl: proofResult.shopifyUrl ?? undefined,
+            designUrl: proofResult.designUrl ?? undefined,
+            cutFileUrl: proofResult.cutFileUrl ?? undefined,
+            productionPdfUrl: proofResult.productionPdfUrl ?? undefined,
+            shape: proofResult.shape,
+            fitMode: proofResult.fitMode,
+            borderThickness: proofResult.borderThickness,
+            roundedCorners: proofResult.roundedCorners,
+            removedBackground: proofResult.removedBackground,
+            lowResolution: false,
+            cutlineColor: proofResult.cutlineColor,
+            bgColor: proofResult.bgColor,
+          }
+        : undefined,
+    };
+    addItem(cartItem);
+    router.push("/cart");
+  }
+
+  const canProceed =
+    dims !== null &&
+    (selectedTierQty !== "custom" || (customQtyInput !== "" && parseInt(customQtyInput) >= MIN_QTY));
+
+  const shapeToPreflightId: Record<ShapeId, PreflightShapeId> = {
+    custom: "die-cut",
+    circle: "circle",
+    oval: "oval",
+    square: "square",
+    rectangle: "rectangle",
+  };
+
+  return (
+    <>
+      <style>{`
+        @keyframes sccl-float { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+        @keyframes sccl-shimmer { 0% { transform: translateX(-150%) skewX(-20deg); } 100% { transform: translateX(250%) skewX(-20deg); } }
+        @keyframes sccl-shine { 0% { left: -80%; } 100% { left: 130%; } }
+        .sccl-card { transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease; }
+        .sccl-card:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+        .sccl-opt { position: relative; overflow: hidden; transition: all 0.22s cubic-bezier(0.4,0,0.2,1); }
+        .sccl-opt::before {
+          content: ''; position: absolute; inset: 0; z-index: 0;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+          transform: translateX(-150%) skewX(-20deg); pointer-events: none;
+        }
+        .sccl-opt:hover::before { animation: sccl-shimmer 0.55s ease forwards; }
+        .sccl-opt > * { position: relative; z-index: 1; }
+        .sccl-upload-icon { animation: sccl-float 3s ease-in-out infinite; }
+        .sccl-cta-active::after {
+          content: ''; position: absolute; top: 0; bottom: 0; width: 35%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+          animation: sccl-shine 2.8s ease-in-out infinite; pointer-events: none;
+        }
+        .sccl-input:focus { outline: none; border-color: rgba(${ACCENT_RGB}, 0.55) !important; box-shadow: 0 0 0 3px rgba(${ACCENT_RGB}, 0.12); }
+        .sccl-textarea:focus { outline: none; border-color: rgba(${ACCENT_RGB}, 0.4) !important; }
+      `}</style>
+
+      {preflightOpen && file && (
+        <PreflightModal
+          file={file}
+          initialShape={shapeToPreflightId[shape]}
+          material={`${material} static cling`}
+          widthIn={dims?.w}
+          heightIn={dims?.h}
+          onApprove={(proof) => { setProofResult(proof); setPreflightOpen(false); }}
+          onClose={(note) => {
+            setPreflightOpen(false);
+            if (note) setInstructions((p) => p ? `${p}\n\nChange Request: ${note}` : `Change Request: ${note}`);
+          }}
+        />
+      )}
+
+      <div className="min-h-screen pb-28 overflow-x-hidden" style={{ background: "#040410" }}>
+        <div className="max-w-400 mx-auto px-4">
+
+          {/* ── Hero ── */}
+          <div
+            className="mt-6 rounded-3xl overflow-hidden relative"
+            style={{
+              background: "linear-gradient(135deg,#0c0c2e 0%,#131050 45%,#0c0c2a 100%)",
+              border: `1px solid rgba(${ACCENT_RGB},0.18)`,
+              minHeight: "150px",
+            }}
+          >
+            <div style={{
+              position: "absolute", inset: 0,
+              backgroundImage: "linear-gradient(rgba(255,255,255,0.022) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.022) 1px,transparent 1px)",
+              backgroundSize: "40px 40px", pointerEvents: "none",
+            }} />
+            <div className="relative z-10 px-8 py-7">
+              <p style={{
+                fontSize: "9px", letterSpacing: "0.45em", textTransform: "uppercase",
+                fontFamily: "var(--font-orbitron)", color: `rgba(${ACCENT_RGB},0.75)`, marginBottom: "0.5rem",
+              }}>Custom Stickers</p>
+              <h1 style={{
+                fontFamily: "var(--font-orbitron)", fontWeight: 900,
+                fontSize: "clamp(1.75rem,3.5vw,2.75rem)", lineHeight: 1.1,
+                background: `linear-gradient(135deg,#fff 0%,rgba(${ACCENT_RGB},1) 55%,rgba(${ACCENT_RGB},0.65) 100%)`,
+                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+              }}>
+                Static Cling Stickers
+              </h1>
+              <p style={{ color: `rgba(${ACCENT_RGB},0.85)`, fontSize: "0.875rem", fontWeight: 600, marginTop: "0.4rem" }}>
+                No Adhesive. Removable. Reusable.
+              </p>
+            </div>
+          </div>
+
+          {/* ── Select Material ── */}
+          <div className="sccl-card rounded-[20px] p-5 mt-4 relative overflow-hidden"
+            style={{ background: "linear-gradient(145deg,#08082a 0%,#0c0c32 100%)", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <h2 style={{ fontFamily: "var(--font-orbitron)", fontSize: "0.7rem", fontWeight: 700, color: "white", letterSpacing: "0.06em", marginBottom: "12px" }}>
+              Select Material
+            </h2>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${MATERIALS.length}, 1fr)`, gap: "8px" }}>
+              {MATERIALS.map((m) => {
+                const sel = material === m.id;
+                return (
+                  <button key={m.id} className="sccl-opt" onClick={() => setMaterial(m.id)} style={{
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
+                    padding: "10px", borderRadius: "14px", cursor: "pointer",
+                    border: `2px solid ${sel ? ACCENT : "rgba(255,255,255,0.07)"}`,
+                    background: sel ? `rgba(${ACCENT_RGB},0.08)` : "rgba(255,255,255,0.02)",
+                    boxShadow: sel ? `0 0 20px rgba(${ACCENT_RGB},0.25)` : "none",
+                  }}>
+                    <div style={{ width: "100%", height: "40px", borderRadius: "8px", ...m.swatch }} />
+                    <span style={{ fontSize: "10px", fontWeight: 700, fontFamily: "var(--font-orbitron)", color: sel ? "white" : "rgba(255,255,255,0.5)" }}>
+                      {m.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", lineHeight: 1.7, marginTop: "12px" }}>
+              {MATERIAL_DESC[material]}
+            </p>
+
+            {material === "clear" && (
+              <div style={{ marginTop: "14px" }}>
+                <p style={{ fontSize: "9px", color: "rgba(255,255,255,0.35)", fontFamily: "var(--font-orbitron)", letterSpacing: "0.08em", marginBottom: "8px" }}>
+                  WHERE WILL THIS BE APPLIED?
+                </p>
+                <div style={{
+                  position: "relative", display: "grid", gridTemplateColumns: "1fr 1fr",
+                  background: "#07071e", borderRadius: "12px", padding: "4px",
+                  border: "1px solid rgba(255,255,255,0.06)", maxWidth: "360px",
+                }}>
+                  <div style={{
+                    position: "absolute", top: "4px", bottom: "4px",
+                    left: placement === "inside" ? "4px" : "calc(50% + 2px)",
+                    width: "calc(50% - 6px)",
+                    background: `linear-gradient(135deg,${ACCENT}cc,${ACCENT})`,
+                    borderRadius: "8px", transition: "left 0.28s cubic-bezier(0.34,1.56,0.64,1)",
+                  }} />
+                  {([
+                    { id: "inside" as Placement, label: "Inside Window" },
+                    { id: "outside" as Placement, label: "Outside Window" },
+                  ]).map((p) => (
+                    <button key={p.id} onClick={() => setPlacement(p.id)} style={{
+                      position: "relative", zIndex: 1, padding: "8px 4px", borderRadius: "8px",
+                      cursor: "pointer", border: "none", background: "transparent", textAlign: "center",
+                      fontSize: "10px", fontWeight: 700, fontFamily: "var(--font-orbitron)",
+                      color: placement === p.id ? "white" : "rgba(255,255,255,0.4)",
+                    }}>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)", marginTop: "8px" }}>
+                  We&apos;ll note this on your order for production — let us know in the instructions below if your artwork needs to be mirrored for the side you&apos;ve chosen.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ── 3-column grid: Shape / Size / Quantity ── */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+
+            {/* ── Shape ── */}
+            <div className="sccl-card rounded-[20px] p-5 flex flex-col gap-3.5 relative overflow-hidden"
+              style={{ background: "linear-gradient(145deg,#08082a 0%,#0c0c32 100%)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <h2 style={{ fontFamily: "var(--font-orbitron)", fontSize: "0.7rem", fontWeight: 700, color: "white", letterSpacing: "0.06em" }}>
+                Select Shape
+              </h2>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                {SHAPES.map((s) => {
+                  const sel = shape === s.id;
+                  return (
+                    <button key={s.id} className="sccl-opt" onClick={() => setShape(s.id)} style={{
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
+                      padding: "12px 6px", borderRadius: "12px", cursor: "pointer",
+                      border: `1px solid ${sel ? `rgba(${ACCENT_RGB},0.55)` : "rgba(255,255,255,0.07)"}`,
+                      background: sel ? `rgba(${ACCENT_RGB},0.1)` : "rgba(255,255,255,0.03)",
+                      boxShadow: sel ? `0 0 16px rgba(${ACCENT_RGB},0.2)` : "none",
+                      color: sel ? ACCENT : "rgba(255,255,255,0.4)",
+                    }}>
+                      <ShapeIcon id={s.id} size={26} />
+                      <span style={{ fontSize: "9px", fontWeight: 600, fontFamily: "var(--font-orbitron)", letterSpacing: "0.08em", color: sel ? ACCENT : "rgba(255,255,255,0.38)" }}>
+                        {s.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── Size ── */}
+            <div className="sccl-card rounded-[20px] p-5 flex flex-col gap-3 relative overflow-hidden"
+              style={{ background: "linear-gradient(145deg,#08082a 0%,#0c0c32 100%)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <h2 style={{ fontFamily: "var(--font-orbitron)", fontSize: "0.7rem", fontWeight: 700, color: "white", letterSpacing: "0.06em" }}>
+                Select Size
+              </h2>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                {SIZE_PRESETS.map((s) => {
+                  const sel = sizeId === s.id;
+                  return (
+                    <button key={s.id} className="sccl-opt" onClick={() => setSizeId(s.id)} style={{
+                      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px",
+                      padding: "16px 8px", borderRadius: "14px", cursor: "pointer",
+                      border: `1px solid ${sel ? `rgba(${ACCENT_RGB},0.55)` : "rgba(255,255,255,0.07)"}`,
+                      background: sel ? `rgba(${ACCENT_RGB},0.1)` : "rgba(255,255,255,0.03)",
+                      boxShadow: sel ? `0 0 18px rgba(${ACCENT_RGB},0.2)` : "none",
+                    }}>
+                      <span style={{ fontSize: "12px", fontWeight: 700, fontFamily: "var(--font-orbitron)", color: sel ? "white" : "rgba(255,255,255,0.5)" }}>
+                        {s.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button className="sccl-opt" onClick={() => setSizeId("custom")} style={{
+                width: "100%", padding: "10px", borderRadius: "12px", cursor: "pointer",
+                border: `1px solid ${sizeId === "custom" ? `rgba(${ACCENT_RGB},0.55)` : "rgba(255,255,255,0.07)"}`,
+                background: sizeId === "custom" ? `rgba(${ACCENT_RGB},0.1)` : "rgba(255,255,255,0.03)",
+                fontSize: "11px", fontWeight: 600, fontFamily: "var(--font-orbitron)", letterSpacing: "0.08em",
+                color: sizeId === "custom" ? "white" : "rgba(255,255,255,0.38)",
+              }}>
+                Custom Size
+              </button>
+
+              {sizeId === "custom" && (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <input
+                      type="number" min="0.5" max="24" step="0.25"
+                      value={customW} onChange={(e) => setCustomW(e.target.value)}
+                      placeholder="W (in)" className="sccl-input"
+                      style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "white", fontSize: "13px", padding: "8px 12px", borderRadius: "10px" }}
+                    />
+                    <span style={{ color: "rgba(255,255,255,0.28)", fontSize: "14px" }}>×</span>
+                    <input
+                      type="number" min="0.5" max="24" step="0.25"
+                      value={customH} onChange={(e) => setCustomH(e.target.value)}
+                      placeholder="H (in)" className="sccl-input"
+                      style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "white", fontSize: "13px", padding: "8px 12px", borderRadius: "10px" }}
+                    />
+                  </div>
+
+                  <div>
+                    <p style={{ fontSize: "9px", color: "rgba(255,255,255,0.35)", fontFamily: "var(--font-orbitron)", letterSpacing: "0.08em", marginBottom: "6px" }}>
+                      OTHER POPULAR SIZES:
+                    </p>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
+                      {POPULAR_SIZES.map((p) => {
+                        const active = customW === String(p.w) && customH === String(p.h);
+                        return (
+                          <button key={p.key} className="sccl-opt" onClick={() => { setCustomW(String(p.w)); setCustomH(String(p.h)); }} style={{
+                            padding: "8px 6px", borderRadius: "10px", cursor: "pointer",
+                            border: `1px solid ${active ? `rgba(${ACCENT_RGB},0.5)` : "rgba(255,255,255,0.07)"}`,
+                            background: active ? `rgba(${ACCENT_RGB},0.12)` : "rgba(255,255,255,0.03)",
+                            fontSize: "11px", fontWeight: 600, color: active ? "white" : "rgba(255,255,255,0.5)",
+                          }}>
+                            {p.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* ── Quantity ── */}
+            <div className="sccl-card rounded-[20px] p-5 flex flex-col gap-2 relative overflow-hidden"
+              style={{ background: "linear-gradient(145deg,#08082a 0%,#0c0c32 100%)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <h2 style={{ fontFamily: "var(--font-orbitron)", fontSize: "0.7rem", fontWeight: 700, color: "white", letterSpacing: "0.06em" }}>
+                Select Quantity
+              </h2>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "3px", flex: 1 }}>
+                {QTY_PRESETS.map((qty) => {
+                  const { total: tot, savings: sav } = priceFor(qty);
+                  const active = selectedTierQty === qty;
+                  return (
+                    <button key={qty} className="sccl-opt" onClick={() => setSelectedTierQty(qty)} style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "9px 12px", borderRadius: "10px", cursor: "pointer",
+                      border: `1px solid ${active ? `rgba(${ACCENT_RGB},0.5)` : "transparent"}`,
+                      background: active ? `rgba(${ACCENT_RGB},0.14)` : "transparent",
+                    }}>
+                      <span style={{ fontFamily: "var(--font-orbitron)", fontSize: "11px", fontWeight: 700, color: active ? "white" : "rgba(255,255,255,0.55)" }}>
+                        {qty >= 1000 ? `${qty / 1000}k` : qty}
+                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 600, color: active ? "white" : "rgba(255,255,255,0.7)" }}>
+                          {tot > 0 ? fmt(tot) : "—"}
+                        </span>
+                        {sav > 0 && (
+                          <span style={{
+                            fontSize: "8px", fontWeight: 700, padding: "2px 7px", borderRadius: "100px",
+                            fontFamily: "var(--font-orbitron)",
+                            background: active ? `rgba(${ACCENT_RGB},0.3)` : "rgba(34,197,94,0.14)",
+                            color: active ? ACCENT : "#22c55e",
+                          }}>
+                            Save {sav}%
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+
+                <button className="sccl-opt" onClick={() => setSelectedTierQty("custom")} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "9px 12px", borderRadius: "10px", cursor: "pointer",
+                  border: `1px solid ${selectedTierQty === "custom" ? `rgba(${ACCENT_RGB},0.5)` : "rgba(255,255,255,0.06)"}`,
+                  background: selectedTierQty === "custom" ? `rgba(${ACCENT_RGB},0.14)` : "rgba(255,255,255,0.02)",
+                }}>
+                  <span style={{ fontFamily: "var(--font-orbitron)", fontSize: "11px", fontWeight: 700, color: selectedTierQty === "custom" ? "white" : "rgba(255,255,255,0.45)" }}>
+                    Custom
+                  </span>
+                  <span style={{ fontSize: "9px", color: selectedTierQty === "custom" ? ACCENT : "rgba(255,255,255,0.28)", fontFamily: "var(--font-orbitron)" }}>
+                    Enter qty →
+                  </span>
+                </button>
+
+                {selectedTierQty === "custom" && (
+                  <input
+                    type="number" min={MIN_QTY} max="50000" step="1"
+                    value={customQtyInput} onChange={(e) => setCustomQtyInput(e.target.value)}
+                    placeholder={`Enter quantity (min ${MIN_QTY})`} className="sccl-input"
+                    style={{ marginTop: "4px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "white", fontSize: "13px", padding: "9px 12px", borderRadius: "10px" }}
+                  />
+                )}
+              </div>
+
+              <div style={{
+                marginTop: "6px", borderRadius: "14px", padding: "14px 16px",
+                background: `linear-gradient(135deg,rgba(${ACCENT_RGB},0.2) 0%,rgba(${ACCENT_RGB},0.1) 100%)`,
+                border: `1px solid rgba(${ACCENT_RGB},0.28)`,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <p style={{ fontSize: "8px", fontFamily: "var(--font-orbitron)", color: `rgba(${ACCENT_RGB},0.65)`, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: "3px" }}>Total</p>
+                    <p style={{ fontFamily: "var(--font-orbitron)", fontSize: "1.125rem", fontWeight: 900, color: "white" }}>
+                      {activeTotal > 0 ? fmt(activeTotal) : dims === null ? "Enter size" : "—"}
+                    </p>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <p style={{ fontSize: "8px", fontFamily: "var(--font-orbitron)", color: `rgba(${ACCENT_RGB},0.65)`, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: "3px" }}>Per unit</p>
+                    <p style={{ fontSize: "0.875rem", fontWeight: 700, color: `rgba(${ACCENT_RGB},0.9)` }}>
+                      {activePerUnit > 0 ? fmt(activePerUnit) : "—"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* ── Upload ── */}
+          <div style={{ marginTop: "1rem" }}>
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={handleDrop}
+              onClick={() => fileRef.current?.click()}
+              style={{
+                borderRadius: "20px",
+                border: `2px dashed ${dragging ? ACCENT : proofResult ? "#22c55e" : file ? `rgba(${ACCENT_RGB},0.4)` : "rgba(255,255,255,0.11)"}`,
+                background: dragging ? `rgba(${ACCENT_RGB},0.07)` : proofResult ? "rgba(34,197,94,0.04)" : file ? `rgba(${ACCENT_RGB},0.04)` : "#06061a",
+                cursor: "pointer", minHeight: "160px",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                gap: "16px", padding: "2.5rem", transition: "all 0.25s ease",
+              }}
+            >
+              <input
+                ref={fileRef} type="file"
+                accept="image/png,image/jpeg,application/pdf,image/svg+xml"
+                style={{ display: "none" }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+              />
+
+              {proofResult ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
+                  {filePreview && <Image src={filePreview} alt="Approved proof" width={96} height={96} className="max-h-24 object-contain" />}
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div style={{
+                      width: "26px", height: "26px", borderRadius: "50%",
+                      background: "rgba(34,197,94,0.18)", border: "1px solid rgba(34,197,94,0.5)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span style={{ fontSize: "13px", fontWeight: 700, color: "#22c55e", fontFamily: "var(--font-orbitron)", letterSpacing: "0.06em" }}>
+                      Proof Approved
+                    </span>
+                  </div>
+                  <p style={{ fontSize: "11px", color: "rgba(34,197,94,0.65)" }}>Ready to add to cart</p>
+                </div>
+              ) : filePreview ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
+                  <div style={{ position: "relative", width: "96px", height: "96px" }}>
+                    <Image src={filePreview} alt="Design preview" fill className="object-contain" />
+                  </div>
+                  <p style={{ fontSize: "13px", fontWeight: 600, color: "white" }}>{file?.name}</p>
+                  <p style={{ fontSize: "11px", color: `rgba(${ACCENT_RGB},0.7)` }}>Click &quot;View Proof&quot; below to continue →</p>
+                </div>
+              ) : (
+                <>
+                  <div className="sccl-upload-icon" style={{
+                    width: "64px", height: "64px", borderRadius: "50%",
+                    background: `rgba(${ACCENT_RGB},0.1)`, border: `1px solid rgba(${ACCENT_RGB},0.2)`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="1.5">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" x2="12" y1="3" y2="15"/>
+                    </svg>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ fontSize: "15px", fontWeight: 600, color: "white", marginBottom: "6px" }}>Drag or click to upload your file</p>
+                    <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.32)" }}>PNG, JPG, SVG, PDF · Max 25 MB · 1 file per order</p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {file && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setFile(null); setFilePreview(null); setProofResult(null); if (fileRef.current) fileRef.current.value = ""; }}
+                className="hover:text-white transition-colors duration-200"
+                style={{ marginTop: "8px", fontSize: "11px", color: "rgba(255,255,255,0.28)", cursor: "pointer", background: "none", border: "none" }}
+              >
+                × Remove file
+              </button>
+            )}
+
+            <div style={{ marginTop: "1rem", paddingBottom: "1rem" }}>
+              <textarea
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                rows={2}
+                placeholder="Special instructions (optional) — color notes, mirroring requests…"
+                className="sccl-textarea placeholder:text-gray-700"
+                style={{
+                  width: "100%", borderRadius: "14px",
+                  background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)",
+                  color: "white", fontSize: "13px", padding: "14px 16px", resize: "none", lineHeight: 1.7,
+                }}
+              />
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── Sticky CTA ── */}
+      <div style={{
+        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50,
+        padding: "14px 16px", borderTop: "1px solid rgba(255,255,255,0.06)",
+        background: "rgba(4,4,16,0.98)",
+      }}>
+        <div style={{ maxWidth: "900px", margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+          {proofResult ? (
+            <button
+              onClick={handleAddToCart}
+              disabled={!canProceed}
+              style={{
+                width: "100%", maxWidth: "640px", padding: "16px", borderRadius: "14px",
+                cursor: canProceed ? "pointer" : "not-allowed",
+                fontFamily: "var(--font-orbitron)", fontSize: "13px", fontWeight: 800, letterSpacing: "0.15em", textTransform: "uppercase",
+                background: canProceed ? "white" : "rgba(255,255,255,0.07)",
+                color: canProceed ? "black" : "rgba(255,255,255,0.22)",
+                border: "none", transition: "all 0.2s ease",
+              }}
+            >
+              Add to Cart →
+            </button>
+          ) : (
+            <button
+              onClick={() => { if (file && canProceed) setPreflightOpen(true); }}
+              disabled={!file || !canProceed}
+              className={file && canProceed ? "sccl-cta-active" : ""}
+              style={{
+                width: "100%", maxWidth: "640px", padding: "16px", borderRadius: "14px",
+                cursor: file && canProceed ? "pointer" : "not-allowed",
+                fontFamily: "var(--font-orbitron)", fontSize: "13px", fontWeight: 800, letterSpacing: "0.15em", textTransform: "uppercase",
+                background: file && canProceed
+                  ? `linear-gradient(135deg,${ACCENT} 0%,rgba(${ACCENT_RGB},0.72) 100%)`
+                  : "rgba(255,255,255,0.05)",
+                color: file && canProceed ? "white" : "rgba(255,255,255,0.2)",
+                border: `1px solid ${file && canProceed ? `rgba(${ACCENT_RGB},0.4)` : "rgba(255,255,255,0.05)"}`,
+                boxShadow: file && canProceed ? `0 4px 32px rgba(${ACCENT_RGB},0.45)` : "none",
+                transition: "all 0.22s ease", position: "relative", overflow: "hidden",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+              }}
+            >
+              {file ? (
+                <>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  View Proof →
+                </>
+              ) : (
+                <>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" x2="12" y1="3" y2="15"/>
+                  </svg>
+                  Upload Artwork to Continue
+                </>
+              )}
+            </button>
+          )}
+          <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.28)" }}>
+            Preview your design, then we&apos;ll add it to your cart and take you to checkout
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}

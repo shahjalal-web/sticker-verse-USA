@@ -18,7 +18,8 @@ export type ProductId =
   | "qr-vinyl"
   | "qr-holographic"
   | "sheets"
-  | "easy-peel";
+  | "easy-peel"
+  | "static-cling";
 
 export const MIN_QTY = 15;
 export const QTY_PRESETS = [50, 100, 200, 300, 500, 1000, 3000];

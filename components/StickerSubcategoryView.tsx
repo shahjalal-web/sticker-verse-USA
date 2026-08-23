@@ -40,6 +40,18 @@ const SUBCATEGORIES = [
     gradient: "linear-gradient(145deg, #001a12 0%, #04421e 50%, #001a12 100%)",
     glow: "rgba(60,190,100,0.35)",
   },
+  {
+    title: "Static Cling Stickers",
+    href: "/stickers/static-cling",
+    icon: (
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="1" />
+        <line x1="3" y1="12" x2="21" y2="12" /><line x1="12" y1="3" x2="12" y2="21" />
+      </svg>
+    ),
+    gradient: "linear-gradient(145deg, #001220 0%, #0a3d5c 50%, #001220 100%)",
+    glow: "rgba(80,190,230,0.35)",
+  },
 ];
 
 const TRUST_BADGES = [
@@ -145,9 +157,9 @@ export default function StickerSubcategoryView() {
           {TRUST_BADGES.map(({ label, icon }) => (
             <div
               key={label}
-              className="flex items-center gap-4 border border-white/[0.07] bg-white/[0.02] px-5 py-4 rounded-sm"
+              className="flex items-center gap-4 border border-white/[0.07] bg-white/2 px-5 py-4 rounded-sm"
             >
-              <div className="text-indigo-400 flex-shrink-0">{icon}</div>
+              <div className="text-indigo-400 shrink-0">{icon}</div>
               <p className="text-xs text-gray-300 font-medium leading-snug">{label}</p>
             </div>
           ))}

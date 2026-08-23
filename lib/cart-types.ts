@@ -37,6 +37,8 @@ export interface VinylStickerCartItem extends CartItemBase {
   fileUrl?: string;
   fileName?: string;
   instructions?: string;
+  /** Static cling only: which side of the glass this design gets applied to. */
+  placement?: "inside" | "outside";
   proof?: {
     status: "approved" | "changes-requested";
     proofUrl?: string;

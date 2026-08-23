@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart-store";
 import type { VinylStickerCartItem } from "@/lib/cart-types";
-import type { ShopifyProduct } from "@/lib/shopify-products";
+import { isPremadeDesignProduct, type ShopifyProduct } from "@/lib/shopify-products";
 import PreflightModal, { type ProofResult, type ShapeId as PreflightShapeId } from "./PreflightModal";
 
 // ─── Pricing tiers ────────────────────────────────────────────────────────────
@@ -187,6 +187,9 @@ function Section({ num, title, children }: { num: string; title: string; childre
 
 export default function StickerConfigurator({ product }: { product: ShopifyProduct }) {
   const dealInfo = detectDealInfo(product.title);
+  // Premade designs (Grab & Go Designs collection) are ready to order as-is —
+  // skip the upload/proof step and use the product's own photo as the design.
+  const premade = isPremadeDesignProduct(product);
 
   const [activeImg, setActiveImg] = useState(0);
   const [cutType, setCutType] = useState<CutType>("die-cut");
@@ -256,7 +259,9 @@ export default function StickerConfigurator({ product }: { product: ShopifyProdu
       kind: "vinyl-sticker",
       title: product.title,
       subtitle: `${MATERIALS.find((m) => m.id === material)?.label} · ${sizeLabel} · ${shape}`,
-      thumbnail: proofResult?.designUrl ?? proofResult?.shopifyUrl ?? product.featuredImage?.url ?? "",
+      thumbnail: premade
+        ? product.featuredImage?.url ?? ""
+        : proofResult?.designUrl ?? proofResult?.shopifyUrl ?? product.featuredImage?.url ?? "",
       unitLabel: "stickers",
       totalPrice: activeTotal,
       quantity: activeTier.qty,
@@ -268,10 +273,10 @@ export default function StickerConfigurator({ product }: { product: ShopifyProdu
       roundedCorners: null,
       tierQty: activeTier.qty,
       perUnit: activePerUnit,
-      fileName: file?.name,
-      fileUrl: proofResult?.designUrl ?? proofResult?.shopifyUrl ?? undefined,
+      fileName: premade ? undefined : file?.name,
+      fileUrl: premade ? product.featuredImage?.url : proofResult?.designUrl ?? proofResult?.shopifyUrl ?? undefined,
       instructions: instructions || undefined,
-      proof: proofResult
+      proof: !premade && proofResult
         ? {
             status: "approved" as const,
             proofUrl: proofResult.shopifyUrl ?? undefined,
@@ -443,6 +448,16 @@ export default function StickerConfigurator({ product }: { product: ShopifyProdu
             >
               {product.title}
             </h1>
+            {premade && (
+              <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 border border-green-500/30 bg-green-500/10">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span className="text-[9px] text-green-400 tracking-widest uppercase" style={{ fontFamily: "var(--font-orbitron)" }}>
+                  Ready-made design — no upload needed
+                </span>
+              </div>
+            )}
             {baseUnitPrice > 0 && (
               <p className="text-gray-400 mt-1.5 text-sm">
                 {dealInfo.isDeal && dealInfo.dealQty ? (
@@ -765,7 +780,7 @@ export default function StickerConfigurator({ product }: { product: ShopifyProdu
               </div>
             )}
 
-            {proofResult ? (
+            {proofResult || premade ? (
               <button
                 onClick={handleAddToCart}
                 disabled={!canAddToCart}
