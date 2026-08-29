@@ -126,7 +126,7 @@ export default function GenericProductPage({ product }: { product: ShopifyProduc
         />
       )}
 
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-12">
+      <div className="max-w-350 mx-auto px-4 sm:px-6 py-12">
         <div className="grid lg:grid-cols-2 gap-10 xl:gap-16">
 
           {/* ── Left: Gallery ── */}
@@ -176,7 +176,7 @@ export default function GenericProductPage({ product }: { product: ShopifyProduc
                   <button
                     key={i}
                     onClick={() => setActiveImg(i)}
-                    className={`flex-shrink-0 relative w-14 h-14 border transition-colors overflow-hidden ${
+                    className={`shrink-0 relative w-14 h-14 border transition-colors overflow-hidden ${
                       i === activeImg ? "border-white/50" : "border-white/5 hover:border-white/20"
                     }`}
                   >
@@ -268,10 +268,10 @@ export default function GenericProductPage({ product }: { product: ShopifyProduc
                 onClick={() => fileRef.current?.click()}
                 className={`border-2 border-dashed cursor-pointer flex flex-col items-center justify-center gap-3 py-8 px-4 text-center transition-all duration-200 ${
                   dragging
-                    ? "border-indigo-400/60 bg-indigo-500/[0.04]"
+                    ? "border-indigo-400/60 bg-indigo-500/4"
                     : file
-                    ? "border-white/20 bg-white/[0.02]"
-                    : "border-white/10 hover:border-white/25 bg-white/[0.015]"
+                    ? "border-white/20 bg-white/2"
+                    : "border-white/10 hover:border-white/25 bg-white/1.5"
                 }`}
               >
                 <input
@@ -310,7 +310,7 @@ export default function GenericProductPage({ product }: { product: ShopifyProduc
               {file && (
                 <div className="mt-2.5 flex items-center gap-3 flex-wrap">
                   {proofResult && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 border border-green-500/30 bg-green-500/[0.04]">
+                    <div className="flex items-center gap-2 px-3 py-1.5 border border-green-500/30 bg-green-500/4">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
@@ -320,7 +320,7 @@ export default function GenericProductPage({ product }: { product: ShopifyProduc
                     </div>
                   )}
                   {changeNote && !proofResult && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 border border-yellow-500/30 bg-yellow-500/[0.04]">
+                    <div className="flex items-center gap-2 px-3 py-1.5 border border-yellow-500/30 bg-yellow-500/4">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2.5">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>

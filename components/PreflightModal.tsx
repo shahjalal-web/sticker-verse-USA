@@ -210,7 +210,7 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
 
         {/* ── Left: Canvas ── */}
         <div
-          className="flex-1 min-h-[300px] md:min-h-[500px] flex items-center justify-center relative overflow-hidden"
+          className="flex-1 min-h-75 md:min-h-125 flex items-center justify-center relative overflow-hidden"
           style={{ background: bgColor, transition: "background 0.3s ease" }}
         >
           {/* Grid */}
@@ -292,13 +292,13 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
         </div>
 
         {/* ── Right: Controls ── */}
-        <div className="w-full md:w-[320px] flex flex-col border-t md:border-t-0 md:border-l border-white/[0.06] overflow-y-auto" style={{ maxHeight: "95vh" }}>
+        <div className="w-full md:w-[320px] flex flex-col border-t md:border-t-0 md:border-l border-white/6 overflow-y-auto" style={{ maxHeight: "95vh" }}>
           <div className="p-6 flex flex-col gap-5">
 
             {/* How This Works — collapsed by default so it doesn't push the
                 actual controls below the fold (especially on mobile), but
                 sits at the very top so it's the first thing customers see. */}
-            <div className="border border-white/10 bg-white/[0.02]">
+            <div className="border border-white/10 bg-white/2">
               <button
                 type="button"
                 onClick={() => setShowHelp((v) => !v)}
@@ -351,7 +351,7 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                     title={SHAPE_LABELS[s]}
                     className={`flex flex-col items-center gap-1.5 py-2.5 border transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed ${
                       shape === s
-                        ? "border-[#00ff44]/50 bg-[#00ff44]/[0.06] text-white"
+                        ? "border-[#00ff44]/50 bg-[#00ff44]/6 text-white"
                         : "border-white/[0.07] text-gray-600 hover:border-white/20 hover:text-gray-400"
                     }`}
                   >
@@ -378,9 +378,9 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                     className={`flex-1 py-2 text-[10px] font-bold tracking-[0.12em] uppercase border transition-all duration-200 disabled:opacity-30 ${
                       fitMode === m
                         ? m === "edge"
-                          ? "border-[#00ff44]/60 bg-[#00ff44]/[0.08] text-[#00ff44]"
-                          : "border-white/40 bg-white/[0.08] text-white"
-                        : "border-white/[0.08] text-gray-500 hover:text-gray-300 hover:border-white/20"
+                          ? "border-[#00ff44]/60 bg-[#00ff44]/8 text-[#00ff44]"
+                          : "border-white/40 bg-white/8 text-white"
+                        : "border-white/8 text-gray-500 hover:text-gray-300 hover:border-white/20"
                     }`}
                     style={{ fontFamily: "var(--font-orbitron)" }}
                   >
@@ -408,7 +408,7 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                         disabled={uploadStatus !== "ready"}
                         className={`flex flex-col items-center gap-1.5 py-2.5 border transition-all duration-200 disabled:opacity-30 ${
                           roundedCorners === rc
-                            ? "border-[#00ff44]/50 bg-[#00ff44]/[0.05] text-white"
+                            ? "border-[#00ff44]/50 bg-[#00ff44]/5 text-white"
                             : "border-white/[0.07] text-gray-600 hover:border-white/20"
                         }`}
                       >
@@ -437,7 +437,7 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                         disabled={uploadStatus !== "ready"}
                         className={`flex flex-col items-center gap-2 py-3 border transition-all duration-200 disabled:opacity-30 ${
                           border === b
-                            ? "border-[#00ff44]/50 bg-[#00ff44]/[0.04] text-white"
+                            ? "border-[#00ff44]/50 bg-[#00ff44]/4 text-white"
                             : "border-white/[0.07] text-gray-600 hover:border-white/20"
                         }`}
                       >
@@ -515,8 +515,8 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
 
             {/* Background status */}
             {uploadStatus === "ready" && bgStatus === "processing" && (
-              <div className="flex items-start gap-2.5 p-3 border border-white/10 bg-white/[0.02]">
-                <div className="w-[11px] h-[11px] mt-0.5 border-2 border-white/15 border-t-white/50 rounded-full animate-spin flex-shrink-0" />
+              <div className="flex items-start gap-2.5 p-3 border border-white/10 bg-white/2">
+                <div className="w-2.75 h-2.75 mt-0.5 border-2 border-white/15 border-t-white/50 rounded-full animate-spin shrink-0" />
                 <div className="flex-1">
                   <p className="text-[10px] text-gray-400 leading-relaxed">
                     Removing background…
@@ -531,8 +531,8 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
               </div>
             )}
             {uploadStatus === "ready" && bgStatus !== "processing" && (
-              <div className={`flex items-start gap-2.5 p-3 border ${removedBg ? "border-green-500/20 bg-green-500/[0.03]" : "border-yellow-500/20 bg-yellow-500/[0.02]"}`}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={removedBg ? "#22c55e" : "#eab308"} strokeWidth="2.5" className="flex-shrink-0 mt-0.5">
+              <div className={`flex items-start gap-2.5 p-3 border ${removedBg ? "border-green-500/20 bg-green-500/3" : "border-yellow-500/20 bg-yellow-500/2"}`}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={removedBg ? "#22c55e" : "#eab308"} strokeWidth="2.5" className="shrink-0 mt-0.5">
                   {removedBg
                     ? <polyline points="20 6 9 17 4 12" />
                     : <><line x1="12" y1="8" x2="12" y2="12" /><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12.01" y2="16" /></>
@@ -587,7 +587,7 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                     onChange={(e) => setNoteText(e.target.value)}
                     rows={4}
                     placeholder="e.g. Remove the white background, make the text larger, adjust colors…"
-                    className="w-full bg-white/[0.04] border border-white/10 text-white text-xs px-3 py-2.5 focus:outline-none focus:border-white/25 resize-none placeholder:text-gray-600 leading-relaxed"
+                    className="w-full bg-white/4 border border-white/10 text-white text-xs px-3 py-2.5 focus:outline-none focus:border-white/25 resize-none placeholder:text-gray-600 leading-relaxed"
                   />
                   <button
                     onClick={() => onClose(noteText.trim() || undefined)}
@@ -614,7 +614,7 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                       onChange={(e) => setNoteText(e.target.value)}
                       rows={2}
                       placeholder="Couldn't get it looking quite right? Tell us what to fix and we'll take care of it before printing."
-                      className="w-full bg-white/[0.04] border border-white/10 text-white text-xs px-3 py-2.5 focus:outline-none focus:border-white/25 resize-none placeholder:text-gray-600 leading-relaxed"
+                      className="w-full bg-white/4 border border-white/10 text-white text-xs px-3 py-2.5 focus:outline-none focus:border-white/25 resize-none placeholder:text-gray-600 leading-relaxed"
                     />
                   </div>
                   <button
