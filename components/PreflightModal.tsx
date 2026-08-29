@@ -23,6 +23,8 @@ export interface ProofResult {
   roundedCorners: RoundedCorners;
   cutlineColor: string;
   bgColor: string;
+  /** Optional note the customer left while approving — e.g. "couldn't quite get the color right, please double-check". Shown to the admin in Shopify. */
+  changeNote?: string;
 }
 
 interface Props {
@@ -113,6 +115,7 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
   const [isSaving, setIsSaving] = useState(false);
   const [showChangeForm, setShowChangeForm] = useState(false);
   const [noteText, setNoteText] = useState("");
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     // Show image instantly from local file — no server round-trip needed
@@ -291,6 +294,38 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
         {/* ── Right: Controls ── */}
         <div className="w-full md:w-[320px] flex flex-col border-t md:border-t-0 md:border-l border-white/[0.06] overflow-y-auto" style={{ maxHeight: "95vh" }}>
           <div className="p-6 flex flex-col gap-5">
+
+            {/* How This Works — collapsed by default so it doesn't push the
+                actual controls below the fold (especially on mobile), but
+                sits at the very top so it's the first thing customers see. */}
+            <div className="border border-white/10 bg-white/[0.02]">
+              <button
+                type="button"
+                onClick={() => setShowHelp((v) => !v)}
+                className="w-full flex items-center justify-between gap-2 px-3.5 py-3 text-left"
+              >
+                <span className="text-[9px] font-bold tracking-[0.3em] uppercase text-yellow-400/70" style={{ fontFamily: "var(--font-orbitron)" }}>
+                  How This Works
+                </span>
+                <svg
+                  width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                  className={`text-gray-500 shrink-0 transition-transform duration-200 ${showHelp ? "rotate-180" : ""}`}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              {showHelp && (
+                <ol className="text-[10px] text-gray-500 leading-relaxed list-decimal list-outside pl-3.5 space-y-1.5 px-3.5 pb-3.5">
+                  <li>We automatically remove the background from your file and show you a preview{isSimple ? "." : " with a cutline (the green outline showing exactly where it'll be cut)."}</li>
+                  {!isSimple && (
+                    <li><span className="text-gray-400">Shape</span> and <span className="text-gray-400">Mode</span> control how your image is cropped/cut — try a few to see what looks best.</li>
+                  )}
+                  <li>Background removal looks off? Use the <span className="text-gray-400">Background removed / Original upload</span> toggle below to switch back to your unprocessed file.</li>
+                  <li><span className="text-gray-400">Cutline color</span> and <span className="text-gray-400">Background</span> below are just for previewing — they don&apos;t affect what actually gets printed.</li>
+                  <li>Looks good? Tap <span className="text-gray-400">Take this design ✓</span>. Not quite right and you&apos;re not sure how to fix it? Leave a note (or tap <span className="text-gray-400">No, I need changes</span> to describe what to redo) — a real person reviews every order before printing.</li>
+                </ol>
+              )}
+            </div>
 
             {/* Header */}
             <div>
@@ -570,6 +605,18 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                 </>
               ) : (
                 <>
+                  <div>
+                    <p className="text-[9px] tracking-[0.3em] uppercase text-gray-500 mb-1.5" style={{ fontFamily: "var(--font-orbitron)" }}>
+                      Note for our team (optional)
+                    </p>
+                    <textarea
+                      value={noteText}
+                      onChange={(e) => setNoteText(e.target.value)}
+                      rows={2}
+                      placeholder="Couldn't get it looking quite right? Tell us what to fix and we'll take care of it before printing."
+                      className="w-full bg-white/[0.04] border border-white/10 text-white text-xs px-3 py-2.5 focus:outline-none focus:border-white/25 resize-none placeholder:text-gray-600 leading-relaxed"
+                    />
+                  </div>
                   <button
                     onClick={async () => {
                       if (uploadStatus !== "ready" || isSaving || bgStatus === "processing") return;
@@ -604,7 +651,7 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                         // non-fatal — approve without shopifyUrl
                       }
                       setIsSaving(false);
-                      onApprove({ processedUrl, originalUrl, shopifyUrl, designUrl, cutFileUrl, productionPdfUrl, borderThickness: border, removedBackground: removedBg, shape, fitMode, roundedCorners, cutlineColor, bgColor });
+                      onApprove({ processedUrl, originalUrl, shopifyUrl, designUrl, cutFileUrl, productionPdfUrl, borderThickness: border, removedBackground: removedBg, shape, fitMode, roundedCorners, cutlineColor, bgColor, changeNote: noteText.trim() || undefined });
                     }}
                     disabled={uploadStatus !== "ready" || isSaving || bgStatus === "processing"}
                     className="w-full py-3.5 text-sm font-bold tracking-[0.15em] uppercase bg-[#22c55e] text-black hover:bg-[#16a34a] active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -627,23 +674,6 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                   </button>
                 </>
               )}
-            </div>
-
-            {/* What is Mission Launch */}
-            <div className="border-t border-white/5 pt-4">
-              <p className="text-[8px] font-bold tracking-[0.4em] uppercase text-yellow-400/70 mb-2" style={{ fontFamily: "var(--font-orbitron)" }}>
-                What is Mission Launch?
-              </p>
-              <p className="text-[10px] text-gray-600 leading-relaxed">
-                {isSimple
-                  ? "Automated proof system. We process your file and show a preview. A human reviews every order before printing."
-                  : "Automated proof system. We process your file and show a cutline preview. A human reviews every order before printing."}
-              </p>
-              <p className="text-[10px] text-gray-600 leading-relaxed mt-1.5">
-                If the preview doesn&apos;t look right, tap{" "}
-                <span className="text-gray-400">No, I need changes</span>{" "}
-                and re-upload or add instructions.
-              </p>
             </div>
 
           </div>

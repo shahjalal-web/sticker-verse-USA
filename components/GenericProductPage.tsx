@@ -90,6 +90,7 @@ export default function GenericProductPage({ product }: { product: ShopifyProduc
     if (proofResult?.shopifyUrl) extraProperties["Design URL"]      = proofResult.shopifyUrl;
     if (proofResult?.shape)      extraProperties["Shape"]           = proofResult.shape;
     if (proofResult?.fitMode)    extraProperties["Fit Mode"]        = proofResult.fitMode;
+    if (proofResult?.changeNote) extraProperties["Customer Note"]   = proofResult.changeNote;
     if (changeNote)              extraProperties["Change Request"]  = changeNote;
 
     const cartItem: Omit<ProductCartItem, "id" | "addedAt"> = {

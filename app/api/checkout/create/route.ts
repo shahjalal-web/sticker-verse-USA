@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (item.instructions) attrs.push({ key: "Instructions", value: item.instructions });
+      if (item.proof?.changeNote) attrs.push({ key: "Customer Note", value: item.proof.changeNote });
 
       return {
         title: item.title,

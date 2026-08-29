@@ -185,6 +185,7 @@ export default function VinylConfigurator({ initialMaterial = "vinyl" }: { initi
             lowResolution: false,
             cutlineColor: proofResult.cutlineColor,
             bgColor: proofResult.bgColor,
+            changeNote: proofResult.changeNote,
           }
         : undefined,
     };

@@ -193,6 +193,7 @@ export default function StaticClingConfigurator() {
             lowResolution: false,
             cutlineColor: proofResult.cutlineColor,
             bgColor: proofResult.bgColor,
+            changeNote: proofResult.changeNote,
           }
         : undefined,
     };

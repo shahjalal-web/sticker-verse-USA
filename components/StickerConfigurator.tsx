@@ -290,6 +290,7 @@ export default function StickerConfigurator({ product }: { product: ShopifyProdu
             roundedCorners: proofResult.roundedCorners,
             removedBackground: proofResult.removedBackground,
             lowResolution: false,
+            changeNote: proofResult.changeNote,
           }
         : undefined,
     };
