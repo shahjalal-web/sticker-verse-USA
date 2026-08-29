@@ -223,8 +223,8 @@ export async function POST(req: NextRequest) {
           });
           if (cut.pathD.length && cut.width && cut.height) {
             const pngDataUri = `data:image/png;base64,${pngBuf.toString("base64")}`;
-            svg = buildCutSvg(pngDataUri, cut.width, cut.height, cut.pathD);
-            pdfBuf = await buildCutPdf(pngBuf, cut.width, cut.height, cut.pathD);
+            svg = buildCutSvg(pngDataUri, cut);
+            pdfBuf = await buildCutPdf(pngBuf, cut);
           }
         } catch (err) {
           // non-fatal — proof still stands without a production cut file

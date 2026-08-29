@@ -249,11 +249,20 @@ const DEFAULT_OFFSET_IN = 0.09; // midpoint of the client-specified 0.0625–0.1
 const DEFAULT_DPI_FALLBACK = 300; // used only when physical size wasn't supplied
 
 export interface CutPathResult {
-  /** Pixel canvas the path coordinates are drawn against. */
+  /** Pixel canvas the path coordinates are drawn against — includes the bleed
+   * margin around the artwork, so the offset cutline is never clipped. */
   width: number;
   height: number;
   /** One SVG path 'd' string per disjoint contour (usually just one). */
   pathD: string[];
+  /** Where (and at what size) to draw the artwork image within the canvas above. */
+  imageX: number;
+  imageY: number;
+  imageW: number;
+  imageH: number;
+  /** Pixels-per-inch this canvas was built at — lets output builders convert
+   * pixel dimensions to real physical units (PDF points, SVG "in" units). */
+  pxPerInch: number;
 }
 
 export async function buildCutPath(params: {
@@ -274,32 +283,45 @@ export async function buildCutPath(params: {
   const meta = await sharp(buf).metadata();
   const w = meta.width ?? 0;
   const h = meta.height ?? 0;
-  if (!w || !h) return { width: 0, height: 0, pathD: [] };
+  if (!w || !h) return { width: 0, height: 0, pathD: [], imageX: 0, imageY: 0, imageW: 0, imageH: 0, pxPerInch: DEFAULT_DPI_FALLBACK };
 
   const isEdge = fitMode === "edge" || shape === "die-cut";
 
   if (isEdge) {
-    if (!removedBackground) {
-      // No alpha to follow — the sticker boundary IS the image rectangle.
-      return { width: w, height: h, pathD: [`M 0 0 H ${w} V ${h} H 0 Z`] };
-    }
-
-    const { alpha } = await extractAlphaMask(buf);
-    const contours = traceContours(alpha, w, h);
-    if (!contours.length) return { width: w, height: h, pathD: [`M 0 0 H ${w} V ${h} H 0 Z`] };
-
     // Physical size for die-cut/edge mode follows the image's own aspect
     // ratio, "contained" within the customer's chosen bounding box (matches
     // the fitMode="edge" preview, which never crops).
     const pxPerInch = pxPerInchForContain(w, h, params.widthIn, params.heightIn);
+
+    if (!removedBackground) {
+      // No alpha to follow — the sticker boundary IS the image rectangle,
+      // so there's no outward bleed offset to make room for.
+      return { width: w, height: h, pathD: [`M 0 0 H ${w} V ${h} H 0 Z`], imageX: 0, imageY: 0, imageW: w, imageH: h, pxPerInch };
+    }
+
+    const { alpha } = await extractAlphaMask(buf);
+    const contours = traceContours(alpha, w, h);
+    if (!contours.length) {
+      return { width: w, height: h, pathD: [`M 0 0 H ${w} V ${h} H 0 Z`], imageX: 0, imageY: 0, imageW: w, imageH: h, pxPerInch };
+    }
+
     const offsetPx = offsetIn * pxPerInch;
+    // The cutline sits OUTSIDE the traced artwork edge by offsetPx — the
+    // canvas must grow by that same margin on every side, or the offset
+    // path (and any real artwork already touching the image's own edge)
+    // gets clipped by the canvas boundary. +1px slack absorbs the small
+    // overshoot the round-join offset/simplify pass can introduce.
+    const marginPx = Math.ceil(offsetPx) + 1;
+    const canvasW = w + marginPx * 2;
+    const canvasH = h + marginPx * 2;
 
     const pathD = contours.map((c) => {
       const simplified = simplifyContour(c, Math.max(1, pxPerInch * 0.01));
       const offset = offsetContour(simplified, offsetPx);
-      return polygonToPathD(offset);
+      const shifted = offset.map((p) => ({ x: p.x + marginPx, y: p.y + marginPx }));
+      return polygonToPathD(shifted);
     });
-    return { width: w, height: h, pathD };
+    return { width: canvasW, height: canvasH, pathD, imageX: marginPx, imageY: marginPx, imageW: w, imageH: h, pxPerInch };
   }
 
   // Preset shapes (circle/oval/square/rectangle) — generated as exact
@@ -309,29 +331,46 @@ export async function buildCutPath(params: {
   const boxIn = params.widthIn ?? params.heightIn ?? sz / DEFAULT_DPI_FALLBACK;
   const pxPerInch = sz / boxIn;
   const offsetPx = offsetIn * pxPerInch;
+  // The offset cutline sits outside the artwork's own box on every side —
+  // same margin math as the edge/die-cut branch above, so it isn't clipped.
+  const marginPx = Math.ceil(offsetPx) + 1;
 
   if (shape === "circle") {
+    const canvasSz = sz + marginPx * 2;
     const r = sz / 2 + offsetPx;
-    return { width: sz, height: sz, pathD: [circlePathD(sz / 2, sz / 2, r)] };
+    return {
+      width: canvasSz, height: canvasSz,
+      pathD: [circlePathD(canvasSz / 2, canvasSz / 2, r)],
+      imageX: marginPx, imageY: marginPx, imageW: sz, imageH: sz, pxPerInch,
+    };
   }
   if (shape === "oval") {
     const ow = Math.round(sz * 0.72), oh = sz;
+    const canvasW = ow + marginPx * 2, canvasH = oh + marginPx * 2;
     const rx = ow / 2 + offsetPx, ry = oh / 2 + offsetPx;
-    return { width: ow, height: oh, pathD: [ellipsePathD(ow / 2, oh / 2, rx, ry)] };
+    return {
+      width: canvasW, height: canvasH,
+      pathD: [ellipsePathD(canvasW / 2, canvasH / 2, rx, ry)],
+      imageX: marginPx, imageY: marginPx, imageW: ow, imageH: oh, pxPerInch,
+    };
   }
   if (shape === "square") {
+    const canvasSz = sz + marginPx * 2;
     const rIn = sz * RC_FRACTION[roundedCorners];
     return {
-      width: sz, height: sz,
-      pathD: [roundedRectPathD(-offsetPx, -offsetPx, sz + 2 * offsetPx, sz + 2 * offsetPx, rIn + offsetPx)],
+      width: canvasSz, height: canvasSz,
+      pathD: [roundedRectPathD(marginPx - offsetPx, marginPx - offsetPx, sz + 2 * offsetPx, sz + 2 * offsetPx, rIn + offsetPx)],
+      imageX: marginPx, imageY: marginPx, imageW: sz, imageH: sz, pxPerInch,
     };
   }
   // rectangle
   const rw = Math.round(sz * 1.45), rh = sz;
+  const canvasW = rw + marginPx * 2, canvasH = rh + marginPx * 2;
   const rIn = rh * RC_FRACTION[roundedCorners];
   return {
-    width: rw, height: rh,
-    pathD: [roundedRectPathD(-offsetPx, -offsetPx, rw + 2 * offsetPx, rh + 2 * offsetPx, rIn + offsetPx)],
+    width: canvasW, height: canvasH,
+    pathD: [roundedRectPathD(marginPx - offsetPx, marginPx - offsetPx, rw + 2 * offsetPx, rh + 2 * offsetPx, rIn + offsetPx)],
+    imageX: marginPx, imageY: marginPx, imageW: rw, imageH: rh, pxPerInch,
   };
 }
 
@@ -346,22 +385,46 @@ function pxPerInchForContain(pxW: number, pxH: number, boxWIn?: number, boxHIn?:
 
 // ─── Output builders ────────────────────────────────────────────────────────
 
-export function buildCutSvg(pngDataUri: string, width: number, height: number, pathD: string[]): string {
+export function buildCutSvg(pngDataUri: string, cut: CutPathResult): string {
+  const { width, height, imageX, imageY, imageW, imageH, pxPerInch, pathD } = cut;
+  // Explicit physical units on width/height (not just viewBox numbers) —
+  // without these, tools like Illustrator interpret the raw pixel count as
+  // px-at-72dpi on import, so e.g. a 1200px-wide design opens as 16.7in.
+  const widthIn = fmt(width / pxPerInch);
+  const heightIn = fmt(height / pxPerInch);
   const paths = pathD
     .map((d) => `<path id="ContourCut" d="${d}" fill="none" stroke="#FF00FF" stroke-width="0.75" />`)
     .join("\n  ");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <image href="${pngDataUri}" width="${width}" height="${height}" />
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${widthIn}in" height="${heightIn}in" viewBox="0 0 ${width} ${height}">
+  <image href="${pngDataUri}" x="${imageX}" y="${imageY}" width="${imageW}" height="${imageH}" />
   ${paths}
 </svg>`;
 }
 
-export async function buildCutPdf(pngBuffer: Buffer, width: number, height: number, pathD: string[]): Promise<Buffer> {
+export async function buildCutPdf(pngBuffer: Buffer, cut: CutPathResult): Promise<Buffer> {
   const { PDFDocument, rgb } = await import("pdf-lib");
+  const { width, height, imageX, imageY, imageW, imageH, pxPerInch, pathD } = cut;
+
+  // PDF page dimensions are in points (72/inch), not pixels — passing the
+  // raw pixel canvas straight to addPage() was the cause of files opening
+  // at the wrong physical size (e.g. a 1200px/300dpi, i.e. 4in, design
+  // opening as 1200pt = 16.7in). Converting through pxPerInch fixes it.
+  const scale = 72 / pxPerInch; // points per source pixel
+  const pageW = width * scale;
+  const pageH = height * scale;
+
   const doc = await PDFDocument.create();
-  const page = doc.addPage([width, height]);
+  const page = doc.addPage([pageW, pageH]);
   const png = await doc.embedPng(pngBuffer);
-  page.drawImage(png, { x: 0, y: 0, width, height });
+
+  // Image-space Y grows downward from the top; PDF page space grows upward
+  // from the bottom — flip when placing the artwork inset in the canvas.
+  page.drawImage(png, {
+    x: imageX * scale,
+    y: (height - imageY - imageH) * scale,
+    width: imageW * scale,
+    height: imageH * scale,
+  });
 
   // NOTE: this stroke is plain magenta (#FF00FF) — the conventional
   // "CutContour" preview color — not a true named spot-color separation.
@@ -372,9 +435,11 @@ export async function buildCutPdf(pngBuffer: Buffer, width: number, height: numb
   // action/script on import.
   for (const d of pathD) {
     // drawSvgPath's y-axis matches SVG (top-down); flip to PDF's bottom-up
-    // page space by anchoring at the top and letting pdf-lib's own SVG
-    // handling reconcile orientation.
-    page.drawSvgPath(d, { x: 0, y: height, borderColor: rgb(1, 0, 1), borderWidth: 0.75 });
+    // page space by anchoring at the page's top, and let `scale` convert
+    // the path's pixel-space coordinates into page points. borderWidth is
+    // in the same (already-scaled) space, so divide to keep the printed
+    // line weight ~0.75pt regardless of the source image's resolution.
+    page.drawSvgPath(d, { x: 0, y: pageH, scale, borderColor: rgb(1, 0, 1), borderWidth: 0.75 / scale });
   }
 
   const bytes = await doc.save();
