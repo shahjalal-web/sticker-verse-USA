@@ -10,6 +10,16 @@ type FitMode = "fill" | "fit" | "edge";
 type BorderThickness = "thin" | "normal" | "wide";
 type RoundedCorners = "none" | "soft" | "medium" | "heavy";
 
+// uploadFileToShopify already retries its own network calls, but the whole
+// staged-upload dance can still fail end-to-end (e.g. Shopify briefly
+// rejecting the staged URL) — one extra full retry catches that without
+// noticeably slowing down the common case where the first attempt works.
+async function uploadWithRetry(buf: Buffer, filename: string, mime: string): Promise<string | null> {
+  const first = await uploadFileToShopify(buf, filename, mime).catch(() => null);
+  if (first) return first;
+  return uploadFileToShopify(buf, filename, mime).catch(() => null);
+}
+
 const BLUR_MAP: Record<BorderThickness, number> = { thin: 3, normal: 6, wide: 12 };
 const BPX_MAP: Record<BorderThickness, number> = { thin: 6, normal: 12, wide: 20 };
 const RC_MAP: Record<RoundedCorners, number> = { none: 0, soft: 0.045, medium: 0.11, heavy: 0.27 };
@@ -233,24 +243,25 @@ export async function POST(req: NextRequest) {
       }
 
       [designUrl, shopifyUrl, cutFileUrl, productionPdfUrl] = await Promise.all([
-        uploadFileToShopify(pngBuf, `${baseName}_design.png`, "image/png").catch(() => null),
-        uploadFileToShopify(proofForAdmin, `${baseName}_${shape}_proof.png`, "image/png").catch(() => null),
-        svg
-          ? uploadFileToShopify(Buffer.from(svg, "utf-8"), `${baseName}_${shape}_cutline.svg`, "image/svg+xml").catch((e) => { console.error("[/api/proof] cutFile upload failed", e); return null; })
-          : Promise.resolve(null),
-        pdfBuf
-          ? uploadFileToShopify(pdfBuf, `${baseName}_${shape}_cutline.pdf`, "application/pdf").catch((e) => { console.error("[/api/proof] productionPdf upload failed", e); return null; })
-          : Promise.resolve(null),
+        uploadWithRetry(pngBuf, `${baseName}_design.png`, "image/png"),
+        uploadWithRetry(proofForAdmin, `${baseName}_${shape}_proof.png`, "image/png"),
+        svg ? uploadWithRetry(Buffer.from(svg, "utf-8"), `${baseName}_${shape}_cutline.svg`, "image/svg+xml") : Promise.resolve(null),
+        pdfBuf ? uploadWithRetry(pdfBuf, `${baseName}_${shape}_cutline.pdf`, "application/pdf") : Promise.resolve(null),
       ]);
+      if (!designUrl) console.error("[/api/proof] design file upload failed after retry — customer artwork was not saved to Shopify");
     } else {
       try {
         const ext = fileName.match(/\.[^.]+$/)?.[0] ?? "";
-        shopifyUrl = await uploadFileToShopify(buf, `${baseName}_proof${ext}`, mime);
+        shopifyUrl = await uploadWithRetry(buf, `${baseName}_proof${ext}`, mime);
         designUrl = shopifyUrl;
       } catch { /* non-fatal */ }
     }
 
-    return NextResponse.json({ shopifyUrl, designUrl, cutFileUrl, productionPdfUrl });
+    // `ok` tells the client whether the customer's actual artwork made it to
+    // Shopify — the other three files are nice-to-have, but losing this one
+    // is exactly the "files not coming through" failure customers hit, so it
+    // gets its own flag instead of being silently indistinguishable from success.
+    return NextResponse.json({ ok: !!designUrl, shopifyUrl, designUrl, cutFileUrl, productionPdfUrl });
   } catch (err) {
     console.error("[/api/proof]", err);
     return NextResponse.json({ error: "Proof generation failed" }, { status: 500 });

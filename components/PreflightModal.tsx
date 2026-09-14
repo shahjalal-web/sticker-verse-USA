@@ -113,6 +113,7 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
   const [cutlineColor, setCutlineColor] = useState("#ffffff");
   const [bgColor, setBgColor] = useState("#060614");
   const [isSaving, setIsSaving] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [showChangeForm, setShowChangeForm] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [showHelp, setShowHelp] = useState(false);
@@ -617,41 +618,63 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                       className="w-full bg-white/4 border border-white/10 text-white text-xs px-3 py-2.5 focus:outline-none focus:border-white/25 resize-none placeholder:text-gray-600 leading-relaxed"
                     />
                   </div>
+                  {saveNotice && (
+                    <p className="text-[10px] text-yellow-500 leading-relaxed -mt-1">{saveNotice}</p>
+                  )}
                   <button
                     onClick={async () => {
                       if (uploadStatus !== "ready" || isSaving || bgStatus === "processing") return;
                       setIsSaving(true);
-                      let shopifyUrl: string | null = null;
-                      let designUrl: string | null = null;
-                      let cutFileUrl: string | null = null;
-                      let productionPdfUrl: string | null = null;
-                      try {
-                        const blob = await fetch(processedUrl).then((r) => r.blob());
-                        const fd = new FormData();
-                        fd.append("file", blob, file.name.replace(/\.[^.]+$/, "") + ".png");
-                        fd.append("shape", shape);
-                        fd.append("fitMode", fitMode);
-                        fd.append("borderThickness", border);
-                        fd.append("roundedCorners", roundedCorners);
-                        fd.append("removedBackground", String(removedBg));
-                        fd.append("fileName", file.name);
-                        fd.append("skipCutline", String(isSimple));
-                        if (widthIn) fd.append("widthIn", String(widthIn));
-                        if (heightIn) fd.append("heightIn", String(heightIn));
-                        const resp2 = await fetch("/api/proof", { method: "POST", body: fd });
-                        const data2 = (await resp2.json()) as {
-                          shopifyUrl?: string | null; designUrl?: string | null;
-                          cutFileUrl?: string | null; productionPdfUrl?: string | null;
-                        };
-                        shopifyUrl = data2.shopifyUrl ?? null;
-                        designUrl = data2.designUrl ?? null;
-                        cutFileUrl = data2.cutFileUrl ?? null;
-                        productionPdfUrl = data2.productionPdfUrl ?? null;
-                      } catch {
-                        // non-fatal — approve without shopifyUrl
+                      setSaveNotice(null);
+
+                      type ProofApiResult = {
+                        ok?: boolean; shopifyUrl?: string | null; designUrl?: string | null;
+                        cutFileUrl?: string | null; productionPdfUrl?: string | null;
+                      };
+                      const attempt = async (): Promise<ProofApiResult | null> => {
+                        try {
+                          const blob = await fetch(processedUrl).then((r) => r.blob());
+                          const fd = new FormData();
+                          fd.append("file", blob, file.name.replace(/\.[^.]+$/, "") + ".png");
+                          fd.append("shape", shape);
+                          fd.append("fitMode", fitMode);
+                          fd.append("borderThickness", border);
+                          fd.append("roundedCorners", roundedCorners);
+                          fd.append("removedBackground", String(removedBg));
+                          fd.append("fileName", file.name);
+                          fd.append("skipCutline", String(isSimple));
+                          if (widthIn) fd.append("widthIn", String(widthIn));
+                          if (heightIn) fd.append("heightIn", String(heightIn));
+                          const resp2 = await fetch("/api/proof", { method: "POST", body: fd });
+                          if (!resp2.ok) return null;
+                          return (await resp2.json()) as ProofApiResult;
+                        } catch {
+                          return null;
+                        }
+                      };
+
+                      // The customer's actual artwork (designUrl) failing to save is the
+                      // one outcome we can't let slide silently — a single retry clears
+                      // most transient hiccups; if it still fails we flag it below instead
+                      // of pretending everything went through.
+                      let result = await attempt();
+                      if (!result?.ok) result = await attempt();
+
+                      const shopifyUrl = result?.shopifyUrl ?? null;
+                      const designUrl = result?.designUrl ?? null;
+                      const cutFileUrl = result?.cutFileUrl ?? null;
+                      const productionPdfUrl = result?.productionPdfUrl ?? null;
+
+                      let changeNote = noteText.trim() || undefined;
+                      if (!designUrl) {
+                        const warning = "⚠ Auto-upload of the customer's file failed after retrying — please request the design file directly from the customer.";
+                        changeNote = changeNote ? `${warning}\n\n${changeNote}` : warning;
+                        setSaveNotice("We had trouble saving your file just now — we've flagged this order so our team follows up with you directly if needed.");
+                        await new Promise((r) => setTimeout(r, 1800));
                       }
+
                       setIsSaving(false);
-                      onApprove({ processedUrl, originalUrl, shopifyUrl, designUrl, cutFileUrl, productionPdfUrl, borderThickness: border, removedBackground: removedBg, shape, fitMode, roundedCorners, cutlineColor, bgColor, changeNote: noteText.trim() || undefined });
+                      onApprove({ processedUrl, originalUrl, shopifyUrl, designUrl, cutFileUrl, productionPdfUrl, borderThickness: border, removedBackground: removedBg, shape, fitMode, roundedCorners, cutlineColor, bgColor, changeNote });
                     }}
                     disabled={uploadStatus !== "ready" || isSaving || bgStatus === "processing"}
                     className="w-full py-3.5 text-sm font-bold tracking-[0.15em] uppercase bg-[#22c55e] text-black hover:bg-[#16a34a] active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"

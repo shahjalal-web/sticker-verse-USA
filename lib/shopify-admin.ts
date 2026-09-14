@@ -95,6 +95,24 @@ export async function createDraftOrder({
   return order;
 }
 
+// Shopify's file-processing pipeline (or the network hop to it) occasionally
+// has a one-off hiccup — retrying the same request once, after a short delay,
+// clears the vast majority of these without the caller ever noticing.
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 2): Promise<Response> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const resp = await fetch(url, init);
+      if (resp.ok) return resp;
+      lastErr = new Error(`HTTP ${resp.status}`);
+    } catch (err) {
+      lastErr = err;
+    }
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, 600));
+  }
+  throw lastErr;
+}
+
 export async function uploadFileToShopify(
   buffer: Buffer,
   filename: string,
@@ -106,7 +124,7 @@ export async function uploadFileToShopify(
   const headers = { "X-Shopify-Access-Token": TOKEN, "Content-Type": "application/json" };
 
   // 1. Stage the upload
-  const stageResp = await fetch(base, {
+  const stageResp = await fetchWithRetry(base, {
     method: "POST",
     headers,
     body: JSON.stringify({
@@ -135,15 +153,15 @@ export async function uploadFileToShopify(
   const form = new FormData();
   for (const p of target.parameters) form.append(p.name, p.value);
   form.append("file", new Blob([new Uint8Array(buffer)], { type: mimeType }), filename);
-  const upResp = await fetch(target.url, { method: "POST", body: form });
-  if (!upResp.ok) return null;
+  const upResp = await fetchWithRetry(target.url, { method: "POST", body: form }).catch(() => null);
+  if (!upResp || !upResp.ok) return null;
 
   // 3. Create file in Shopify — get file ID
   // contentType must match the resource: images become a MediaImage (with a
   // processed `image.url`), everything else (PDF, SVG, ...) must be "FILE"
   // or Shopify creates a broken/empty node.
   const shopifyContentType = mimeType.startsWith("image/") && mimeType !== "image/svg+xml" ? "IMAGE" : "FILE";
-  const createResp = await fetch(base, {
+  const createResp = await fetchWithRetry(base, {
     method: "POST",
     headers,
     body: JSON.stringify({
@@ -183,39 +201,45 @@ export async function uploadFileToShopify(
   const immediateUrl = created.image?.url ?? created.url;
   if (immediateUrl) return immediateUrl;
 
-  // 4. Poll until READY (max 12 × 2s = 24s)
+  // 4. Poll until READY (max 6 × 1.5s = 9s — kept short so a slow file never
+  // eats into the request's overall time budget; the resourceUrl fallback
+  // below is a fully working link either way, just not the final CDN one).
   const fileId = created.id;
   // If no fileId, fall back to staging URL
   if (!fileId) return target.resourceUrl;
 
-  for (let i = 0; i < 12; i++) {
-    await new Promise((r) => setTimeout(r, 2000));
+  for (let i = 0; i < 6; i++) {
+    await new Promise((r) => setTimeout(r, 1500));
 
-    const pollResp = await fetch(base, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        query: `
-          query getFile($id: ID!) {
-            node(id: $id) {
-              ... on MediaImage { fileStatus image { url } }
-              ... on GenericFile  { fileStatus url }
+    // A transient blip on a single poll must not throw away the fallback
+    // below — just skip this attempt and try again next tick.
+    try {
+      const pollResp = await fetch(base, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          query: `
+            query getFile($id: ID!) {
+              node(id: $id) {
+                ... on MediaImage { fileStatus image { url } }
+                ... on GenericFile  { fileStatus url }
+              }
             }
-          }
-        `,
-        variables: { id: fileId },
-      }),
-      cache: "no-store",
-    });
+          `,
+          variables: { id: fileId },
+        }),
+        cache: "no-store",
+      });
 
-    const pollJson = (await pollResp.json()) as {
-      data?: { node: { fileStatus: string; image?: { url: string }; url?: string } | null };
-    };
+      const pollJson = (await pollResp.json()) as {
+        data?: { node: { fileStatus: string; image?: { url: string }; url?: string } | null };
+      };
 
-    const node = pollJson.data?.node;
-    if (node?.fileStatus === "READY") {
-      return node.image?.url ?? node.url ?? null;
-    }
+      const node = pollJson.data?.node;
+      if (node?.fileStatus === "READY") {
+        return node.image?.url ?? node.url ?? null;
+      }
+    } catch { /* try again next tick */ }
   }
 
   // Shopify CDN URL not ready within polling window — return staging URL as fallback.
