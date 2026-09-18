@@ -10,6 +10,16 @@ const nextConfig: NextConfig = {
   experimental: {
     proxyClientMaxBodySize: "30mb",
   },
+  // sharp's Linux binary (@img/sharp-linux-x64) dlopen()s libvips from a
+  // sibling package that file tracing can't see, so on Vercel the function
+  // bundle shipped without it and every image route died with
+  // "ERR_DLOPEN_FAILED: libvips-cpp.so: cannot open shared object file".
+  // Force both packages into the bundle for the routes that import sharp.
+  // (Locally on Windows these globs match nothing — that's fine.)
+  outputFileTracingIncludes: {
+    "/api/proof": ["./node_modules/@img/sharp-linux-x64/**/*", "./node_modules/@img/sharp-libvips-linux-x64/**/*"],
+    "/api/upload": ["./node_modules/@img/sharp-linux-x64/**/*", "./node_modules/@img/sharp-libvips-linux-x64/**/*"],
+  },
   images: {
     remotePatterns: [
       {
