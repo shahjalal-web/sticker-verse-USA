@@ -177,21 +177,33 @@ export async function POST(req: NextRequest) {
     let cutFileUrl: string | null = null;
     let productionPdfUrl: string | null = null;
     let uploadError: string | null = null;
+    let warning: string | null = null;
 
     if (mime.startsWith("image/") && mime !== "image/svg+xml") {
-      const sharpLib = (await import("sharp")).default;
+      // sharp is a native module; if it can't load in this deployment the
+      // customer's original file must still be saved — losing the proof and
+      // cutline is recoverable by hand, losing the artwork is not.
+      let sharpLib: (typeof import("sharp"))["default"] | null = null;
+      try {
+        sharpLib = (await import("sharp")).default;
+      } catch (err) {
+        warning = `image library failed to load, proof/cutline skipped: ${err instanceof Error ? err.message : String(err)}`;
+        console.error("[/api/proof]", warning);
+      }
 
       // Normalize to a real PNG up front — everything downstream (proof
       // compositing, cut-path generation, pdf-lib's embedPng) assumes PNG
       // bytes, but the uploaded file (or the original when background
       // removal was skipped/unavailable) may be a JPEG/WebP/etc.
       let pngBuf: Buffer = buf;
-      try {
-        pngBuf = await sharpLib(buf).png().toBuffer();
-      } catch { /* not a raster image sharp can decode — fall through with raw buf */ }
+      if (sharpLib) {
+        try {
+          pngBuf = await sharpLib(buf).png().toBuffer();
+        } catch { /* not a raster image sharp can decode — fall through with raw buf */ }
+      }
 
       let proofBuf: Buffer = pngBuf;
-      if (!skipCutline) {
+      if (sharpLib && !skipCutline) {
         try {
           proofBuf = await generateProof(pngBuf, shape, fitMode, borderThickness, roundedCorners, removedBackground);
         } catch { /* use pngBuf as fallback */ }
@@ -200,17 +212,19 @@ export async function POST(req: NextRequest) {
       // Composite proof over white background so the cutline is clearly visible
       // in Shopify admin (Shopify renders transparent PNGs as gray, hiding the cutline)
       let proofForAdmin = proofBuf;
-      try {
-        const { width: pw = 0, height: ph = 0 } = await sharpLib(proofBuf).metadata();
-        if (pw && ph) {
-          proofForAdmin = await sharpLib({
-            create: { width: pw, height: ph, channels: 3, background: { r: 255, g: 255, b: 255 } },
-          })
-            .png()
-            .composite([{ input: proofBuf, blend: "over" }])
-            .toBuffer();
-        }
-      } catch { /* use proofBuf as-is */ }
+      if (sharpLib) {
+        try {
+          const { width: pw = 0, height: ph = 0 } = await sharpLib(proofBuf).metadata();
+          if (pw && ph) {
+            proofForAdmin = await sharpLib({
+              create: { width: pw, height: ph, channels: 3, background: { r: 255, g: 255, b: 255 } },
+            })
+              .png()
+              .composite([{ input: proofBuf, blend: "over" }])
+              .toBuffer();
+          }
+        } catch { /* use proofBuf as-is */ }
+      }
 
       // Build the production cut path (local CPU work, no network) before
       // kicking off any uploads, so every upload below can run in a single
@@ -222,7 +236,7 @@ export async function POST(req: NextRequest) {
       // aren't cut to the artwork's shape (banners, laser engraving, ...).
       let svg: string | null = null;
       let pdfBuf: Buffer | null = null;
-      if (!skipCutline) {
+      if (sharpLib && !skipCutline) {
         try {
           const cut = await buildCutPath({
             buf: pngBuf,
@@ -272,9 +286,13 @@ export async function POST(req: NextRequest) {
     // `error` carries the specific reason (missing API scope, oversized file,
     // Shopify 5xx, ...) through to the order's Customer Note so it's visible
     // from Shopify Admin without needing server logs.
-    return NextResponse.json({ ok: !!designUrl, shopifyUrl, designUrl, cutFileUrl, productionPdfUrl, error: designUrl ? null : uploadError });
+    return NextResponse.json({ ok: !!designUrl, shopifyUrl, designUrl, cutFileUrl, productionPdfUrl, error: designUrl ? null : uploadError, warning });
   } catch (err) {
     console.error("[/api/proof]", err);
-    return NextResponse.json({ error: "Proof generation failed" }, { status: 500 });
+    // The message is our own / a library's (never the Shopify token), and
+    // having it reach the order note is what makes a production-only failure
+    // diagnosable without access to the hosting provider's logs.
+    const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    return NextResponse.json({ error: "Proof generation failed", detail }, { status: 500 });
   }
 }

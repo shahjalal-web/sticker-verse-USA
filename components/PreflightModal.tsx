@@ -690,7 +690,8 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
 
                       type ProofApiResult = {
                         ok?: boolean; shopifyUrl?: string | null; designUrl?: string | null;
-                        cutFileUrl?: string | null; productionPdfUrl?: string | null; error?: string | null;
+                        cutFileUrl?: string | null; productionPdfUrl?: string | null;
+                        error?: string | null; detail?: string | null; warning?: string | null;
                       };
 
                       // Shrink once and reuse the same bytes for both attempts — no point
@@ -713,7 +714,10 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                           if (heightIn) fd.append("heightIn", String(heightIn));
                           const resp2 = await fetch("/api/proof", { method: "POST", body: fd });
                           const json = (await resp2.json().catch(() => null)) as ProofApiResult | null;
-                          if (!resp2.ok) return { ...json, ok: false, error: json?.error ?? `HTTP ${resp2.status}` };
+                          if (!resp2.ok) {
+                            const reason = json?.detail ? `${json.error ?? "server error"}: ${json.detail}` : json?.error ?? `HTTP ${resp2.status}`;
+                            return { ...json, ok: false, error: reason };
+                          }
                           return json;
                         } catch (err) {
                           return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -733,6 +737,12 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                       const productionPdfUrl = result?.productionPdfUrl ?? null;
 
                       let changeNote = noteText.trim() || undefined;
+                      if (designUrl && result?.warning) {
+                        // Artwork saved but proof/cutline couldn't be generated — tell the
+                        // admin why so they know to make the cut file by hand.
+                        const w = `⚠ ${result.warning}`;
+                        changeNote = changeNote ? `${w}\n\n${changeNote}` : w;
+                      }
                       if (!designUrl) {
                         const detail = result?.error ?? "no response";
                         const warning = `⚠ Auto-upload of the customer's file failed after retrying (${detail}) — please request the design file directly from the customer.`;
