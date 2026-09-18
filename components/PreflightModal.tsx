@@ -98,7 +98,10 @@ async function decodeImage(blob: Blob): Promise<ImageBitmap | HTMLImageElement |
   }
 }
 
-async function shrinkForUpload(blob: Blob, maxDim = 4000, maxBytes = 4 * 1024 * 1024): Promise<Blob> {
+// 3.5MB target: Vercel rejects the whole request at ~4.5MB (413
+// FUNCTION_PAYLOAD_TOO_LARGE) before any of our code runs, so the image plus
+// multipart overhead has to land safely under that.
+async function shrinkForUpload(blob: Blob, maxDim = 4000, maxBytes = 3.5 * 1024 * 1024): Promise<Blob> {
   if (blob.size <= maxBytes) return blob;
   const img = await decodeImage(blob);
   if (!img) return blob; // can't decode client-side — send as-is and let the server deal with it
@@ -731,11 +734,13 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
 
                       let changeNote = noteText.trim() || undefined;
                       if (!designUrl) {
-                        const reason = result?.error ? ` (${result.error})` : "";
-                        const warning = `⚠ Auto-upload of the customer's file failed after retrying${reason} — please request the design file directly from the customer.`;
+                        const detail = result?.error ?? "no response";
+                        const warning = `⚠ Auto-upload of the customer's file failed after retrying (${detail}) — please request the design file directly from the customer.`;
                         changeNote = changeNote ? `${warning}\n\n${changeNote}` : warning;
-                        setSaveNotice("We had trouble saving your file just now — we've flagged this order so our team follows up with you directly if needed.");
-                        await new Promise((r) => setTimeout(r, 1800));
+                        // The technical detail is shown on screen too, so a customer (or
+                        // the store owner testing) can screenshot exactly what went wrong.
+                        setSaveNotice(`We had trouble saving your file just now — we've flagged this order so our team follows up with you directly if needed. (Details: ${detail}; ${(uploadBlob.size / 1024 / 1024).toFixed(1)} MB sent)`);
+                        await new Promise((r) => setTimeout(r, 3500));
                       }
 
                       setIsSaving(false);
