@@ -14,10 +14,13 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const baseName = `qr-sticker-${Date.now()}`;
-    const url = await uploadFileToShopify(buffer, `${baseName}.png`, "image/png");
-    if (!url) return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    const result = await uploadFileToShopify(buffer, `${baseName}.png`, "image/png");
+    if (!result.url) {
+      console.error("[/api/qr-upload] upload failed:", result.error);
+      return NextResponse.json({ error: result.error ?? "Upload failed" }, { status: 500 });
+    }
 
-    return NextResponse.json({ url });
+    return NextResponse.json({ url: result.url });
   } catch (err) {
     console.error("[/api/qr-upload]", err);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });

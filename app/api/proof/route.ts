@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { uploadFileToShopify } from "@/lib/shopify-admin";
+import { uploadFileToShopify, type UploadResult } from "@/lib/shopify-admin";
 import { buildCutPath, buildCutSvg, buildCutPdf, type CutShape, type CutFitMode, type CutRoundedCorners } from "@/lib/cut-path";
 
 export const runtime = "nodejs";
@@ -14,10 +14,11 @@ type RoundedCorners = "none" | "soft" | "medium" | "heavy";
 // staged-upload dance can still fail end-to-end (e.g. Shopify briefly
 // rejecting the staged URL) — one extra full retry catches that without
 // noticeably slowing down the common case where the first attempt works.
-async function uploadWithRetry(buf: Buffer, filename: string, mime: string): Promise<string | null> {
-  const first = await uploadFileToShopify(buf, filename, mime).catch(() => null);
-  if (first) return first;
-  return uploadFileToShopify(buf, filename, mime).catch(() => null);
+async function uploadWithRetry(buf: Buffer, filename: string, mime: string): Promise<UploadResult> {
+  const first = await uploadFileToShopify(buf, filename, mime).catch((e) => ({ url: null, error: e instanceof Error ? e.message : String(e) }));
+  if (first.url) return first;
+  const second = await uploadFileToShopify(buf, filename, mime).catch((e) => ({ url: null, error: e instanceof Error ? e.message : String(e) }));
+  return second.url ? second : { url: null, error: second.error ?? first.error };
 }
 
 const BLUR_MAP: Record<BorderThickness, number> = { thin: 3, normal: 6, wide: 12 };
@@ -175,6 +176,7 @@ export async function POST(req: NextRequest) {
     let designUrl: string | null = null;
     let cutFileUrl: string | null = null;
     let productionPdfUrl: string | null = null;
+    let uploadError: string | null = null;
 
     if (mime.startsWith("image/") && mime !== "image/svg+xml") {
       const sharpLib = (await import("sharp")).default;
@@ -242,26 +244,35 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      [designUrl, shopifyUrl, cutFileUrl, productionPdfUrl] = await Promise.all([
+      const [designRes, proofRes, cutRes, pdfRes] = await Promise.all([
         uploadWithRetry(pngBuf, `${baseName}_design.png`, "image/png"),
         uploadWithRetry(proofForAdmin, `${baseName}_${shape}_proof.png`, "image/png"),
-        svg ? uploadWithRetry(Buffer.from(svg, "utf-8"), `${baseName}_${shape}_cutline.svg`, "image/svg+xml") : Promise.resolve(null),
-        pdfBuf ? uploadWithRetry(pdfBuf, `${baseName}_${shape}_cutline.pdf`, "application/pdf") : Promise.resolve(null),
+        svg ? uploadWithRetry(Buffer.from(svg, "utf-8"), `${baseName}_${shape}_cutline.svg`, "image/svg+xml") : Promise.resolve<UploadResult>({ url: null, error: null }),
+        pdfBuf ? uploadWithRetry(pdfBuf, `${baseName}_${shape}_cutline.pdf`, "application/pdf") : Promise.resolve<UploadResult>({ url: null, error: null }),
       ]);
-      if (!designUrl) console.error("[/api/proof] design file upload failed after retry — customer artwork was not saved to Shopify");
+      designUrl = designRes.url;
+      shopifyUrl = proofRes.url;
+      cutFileUrl = cutRes.url;
+      productionPdfUrl = pdfRes.url;
+      uploadError = designRes.error;
+      if (!designUrl) console.error("[/api/proof] design file upload failed after retry:", designRes.error);
     } else {
-      try {
-        const ext = fileName.match(/\.[^.]+$/)?.[0] ?? "";
-        shopifyUrl = await uploadWithRetry(buf, `${baseName}_proof${ext}`, mime);
-        designUrl = shopifyUrl;
-      } catch { /* non-fatal */ }
+      const ext = fileName.match(/\.[^.]+$/)?.[0] ?? "";
+      const res = await uploadWithRetry(buf, `${baseName}_proof${ext}`, mime);
+      shopifyUrl = res.url;
+      designUrl = res.url;
+      uploadError = res.error;
+      if (!res.url) console.error("[/api/proof] non-raster upload failed:", res.error);
     }
 
     // `ok` tells the client whether the customer's actual artwork made it to
     // Shopify — the other three files are nice-to-have, but losing this one
     // is exactly the "files not coming through" failure customers hit, so it
     // gets its own flag instead of being silently indistinguishable from success.
-    return NextResponse.json({ ok: !!designUrl, shopifyUrl, designUrl, cutFileUrl, productionPdfUrl });
+    // `error` carries the specific reason (missing API scope, oversized file,
+    // Shopify 5xx, ...) through to the order's Customer Note so it's visible
+    // from Shopify Admin without needing server logs.
+    return NextResponse.json({ ok: !!designUrl, shopifyUrl, designUrl, cutFileUrl, productionPdfUrl, error: designUrl ? null : uploadError });
   } catch (err) {
     console.error("[/api/proof]", err);
     return NextResponse.json({ error: "Proof generation failed" }, { status: 500 });

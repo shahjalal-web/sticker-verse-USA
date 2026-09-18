@@ -70,6 +70,39 @@ function ShapeIcon({ id, size = 20 }: { id: ShapeId; size?: number }) {
   }
 }
 
+// Phone-camera photos routinely land at 20-30MB once decoded to a lossless
+// PNG (needed to keep the alpha channel from background removal) — comfortably
+// over the ~4.5MB request-body ceiling serverless platforms like Vercel
+// enforce, which made the upload to /api/proof fail consistently (not just a
+// one-off blip retrying could fix) for any customer with a modern phone.
+// Downscaling to a print-plenty resolution before sending fixes that at the
+// source instead of just detecting and reporting the failure after the fact.
+async function shrinkForUpload(blob: Blob, maxDim = 4000, maxBytes = 4 * 1024 * 1024): Promise<Blob> {
+  if (blob.size <= maxBytes) return blob;
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(blob);
+  } catch {
+    return blob; // can't decode client-side — send as-is and let the server deal with it
+  }
+  let scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return blob;
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    const out: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!out) return blob;
+    if (out.size <= maxBytes || scale <= 0.15) return out;
+    scale *= 0.75;
+  }
+  return blob;
+}
+
 function getContainerSize(shape: ShapeId, zoom: number): { w: number; h: number } {
   const base = 220 * zoom;
   switch (shape) {
@@ -629,13 +662,18 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
 
                       type ProofApiResult = {
                         ok?: boolean; shopifyUrl?: string | null; designUrl?: string | null;
-                        cutFileUrl?: string | null; productionPdfUrl?: string | null;
+                        cutFileUrl?: string | null; productionPdfUrl?: string | null; error?: string | null;
                       };
+
+                      // Shrink once and reuse the same bytes for both attempts — no point
+                      // re-decoding/re-encoding the image again on a retry.
+                      const rawBlob = await fetch(processedUrl).then((r) => r.blob());
+                      const uploadBlob = await shrinkForUpload(rawBlob);
+
                       const attempt = async (): Promise<ProofApiResult | null> => {
                         try {
-                          const blob = await fetch(processedUrl).then((r) => r.blob());
                           const fd = new FormData();
-                          fd.append("file", blob, file.name.replace(/\.[^.]+$/, "") + ".png");
+                          fd.append("file", uploadBlob, file.name.replace(/\.[^.]+$/, "") + ".png");
                           fd.append("shape", shape);
                           fd.append("fitMode", fitMode);
                           fd.append("borderThickness", border);
@@ -646,10 +684,11 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
                           if (widthIn) fd.append("widthIn", String(widthIn));
                           if (heightIn) fd.append("heightIn", String(heightIn));
                           const resp2 = await fetch("/api/proof", { method: "POST", body: fd });
-                          if (!resp2.ok) return null;
-                          return (await resp2.json()) as ProofApiResult;
-                        } catch {
-                          return null;
+                          const json = (await resp2.json().catch(() => null)) as ProofApiResult | null;
+                          if (!resp2.ok) return { ...json, ok: false, error: json?.error ?? `HTTP ${resp2.status}` };
+                          return json;
+                        } catch (err) {
+                          return { ok: false, error: err instanceof Error ? err.message : String(err) };
                         }
                       };
 
@@ -667,7 +706,8 @@ export default function PreflightModal({ file, initialShape, material, widthIn, 
 
                       let changeNote = noteText.trim() || undefined;
                       if (!designUrl) {
-                        const warning = "⚠ Auto-upload of the customer's file failed after retrying — please request the design file directly from the customer.";
+                        const reason = result?.error ? ` (${result.error})` : "";
+                        const warning = `⚠ Auto-upload of the customer's file failed after retrying${reason} — please request the design file directly from the customer.`;
                         changeNote = changeNote ? `${warning}\n\n${changeNote}` : warning;
                         setSaveNotice("We had trouble saving your file just now — we've flagged this order so our team follows up with you directly if needed.");
                         await new Promise((r) => setTimeout(r, 1800));
