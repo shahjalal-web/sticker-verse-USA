@@ -42,6 +42,13 @@ export function proxy(request: NextRequest) {
   }
 }
 
+// /api is excluded on purpose: none of the Shopify redirect paths live there,
+// and whenever the proxy runs on a request Next.js buffers a clone of its body
+// (capped at proxyClientMaxBodySize, 10MB by default) so the proxy could read
+// it too — anything past the cap is silently dropped, which was truncating
+// large multipart uploads to /api/proof and /api/upload into unparseable
+// FormData ("Proof generation failed"). Keeping the proxy off /api entirely
+// means uploads stream straight to the route handler untouched.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|.*\\.png|.*\\.jpg|.*\\.svg|.*\\.ico).*)"],
+  matcher: ["/((?!api/|_next/static|_next/image|favicon\\.ico|.*\\.png|.*\\.jpg|.*\\.svg|.*\\.ico).*)"],
 };

@@ -71,36 +71,61 @@ function ShapeIcon({ id, size = 20 }: { id: ShapeId; size?: number }) {
 }
 
 // Phone-camera photos routinely land at 20-30MB once decoded to a lossless
-// PNG (needed to keep the alpha channel from background removal) — comfortably
-// over the ~4.5MB request-body ceiling serverless platforms like Vercel
-// enforce, which made the upload to /api/proof fail consistently (not just a
-// one-off blip retrying could fix) for any customer with a modern phone.
-// Downscaling to a print-plenty resolution before sending fixes that at the
-// source instead of just detecting and reporting the failure after the fact.
+// PNG (needed to keep the alpha channel from background removal). Bodies that
+// large were being truncated server-side (see proxy.ts), and even with that
+// fixed there's no print-quality reason to push tens of MB over a phone
+// connection — a sticker a few inches wide needs a small fraction of that.
+// Downscaling before sending keeps uploads fast and well clear of any
+// platform request-size ceiling.
+async function decodeImage(blob: Blob): Promise<ImageBitmap | HTMLImageElement | null> {
+  try {
+    if (typeof createImageBitmap === "function") return await createImageBitmap(blob);
+  } catch { /* fall through to the <img> path — older Safari chokes on some PNGs here */ }
+  try {
+    const url = URL.createObjectURL(blob);
+    try {
+      return await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("image decode failed"));
+        img.src = url;
+      });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  } catch {
+    return null;
+  }
+}
+
 async function shrinkForUpload(blob: Blob, maxDim = 4000, maxBytes = 4 * 1024 * 1024): Promise<Blob> {
   if (blob.size <= maxBytes) return blob;
-  let bitmap: ImageBitmap;
-  try {
-    bitmap = await createImageBitmap(blob);
-  } catch {
-    return blob; // can't decode client-side — send as-is and let the server deal with it
-  }
-  let scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
-  for (let attempt = 0; attempt < 6; attempt++) {
-    const w = Math.max(1, Math.round(bitmap.width * scale));
-    const h = Math.max(1, Math.round(bitmap.height * scale));
+  const img = await decodeImage(blob);
+  if (!img) return blob; // can't decode client-side — send as-is and let the server deal with it
+  const srcW = "naturalWidth" in img ? img.naturalWidth : img.width;
+  const srcH = "naturalHeight" in img ? img.naturalHeight : img.height;
+  if (!srcW || !srcH) return blob;
+
+  let scale = Math.min(1, maxDim / Math.max(srcW, srcH));
+  let best = blob;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const w = Math.max(1, Math.round(srcW * scale));
+    const h = Math.max(1, Math.round(srcH * scale));
     const canvas = document.createElement("canvas");
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return blob;
-    ctx.drawImage(bitmap, 0, 0, w, h);
+    if (!ctx) break;
+    ctx.drawImage(img, 0, 0, w, h);
     const out: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-    if (!out) return blob;
-    if (out.size <= maxBytes || scale <= 0.15) return out;
+    if (!out) break;
+    if (out.size < best.size) best = out;
+    if (out.size <= maxBytes || scale <= 0.1) break;
     scale *= 0.75;
   }
-  return blob;
+  // Whatever happened, send the smallest usable version we managed to make —
+  // a somewhat-smaller image beats an oversized one that fails to upload.
+  return best;
 }
 
 function getContainerSize(shape: ShapeId, zoom: number): { w: number; h: number } {
